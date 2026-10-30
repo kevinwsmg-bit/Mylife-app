@@ -44,7 +44,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - `js/modules/`: one file per module. Each exports `{ id, name, tab?, icon, blurb, render(root), todayCard?() }`.
   To add a module: create the file, add its id to `ALL_MODULES` in `core/store.js`, register it in `modules/index.js`.
 - Built so far: Today, Meds (scheduled reminders, adherence, .ics export; as-needed meds with one-tap "Take now" log, optional wait-hours confirm, shown on Today and in the doctor report), Blood Pressure (voice entry, averages, chart),
-  Activity & How I Feel (activity, minutes, pain level/area, mood, notes; one-tap pain log on Today), Oxygen & Pulse (voice, fingertip vs experimental watch readings; watch readings are excluded from the doctor report), Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
+  Activity & How I Feel (multi-check activities incl. Restroom, multi-check pain areas and feelings, pain level 0-10, mood, notes; one-tap pain log on Today; older single-value entries still read fine via entryActivities/entryAreas), Oxygen & Pulse (voice, fingertip vs experimental watch readings; watch readings are excluded from the doctor report), Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
   Calendar (events plus to-do and TV dates), Journal (text and mood), Food Log (typed or spoken, auto time-stamped, one-tap "Your usual", Today quick-add, own include-in-report checkbox), TV and Movies, App Ideas, Doctor Report (per-section and per-medication toggles, PDF/share/copy/CSV, optional every-reading detail), Settings
   (profiles, module toggles, backup/restore).
 - All data stays in the browser (localStorage), per profile. Backup/restore is a JSON file in Settings.
@@ -74,6 +74,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   Sharing is user-initiated only (Share sheet, PDF, copy, CSV); the app cannot send directly to a doctor's system.
 - v0.4: Food Log module (food moved out of Journal; old entries migrate once); shared `core/reportcfg.js` lets any module offer its own include-in-report checkbox.
   Fixed a bug where logged times could be stale if a form had been open for a while.
+- v0.5: Activity form is multi-select (activities, pain areas, feelings). One pain level covers all checked areas.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.

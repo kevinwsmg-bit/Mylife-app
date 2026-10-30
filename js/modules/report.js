@@ -8,7 +8,7 @@ import { readings, stats, byDay } from './bp.js';
 import { weights, weightUnit } from './weight.js';
 import { o2Readings, summary as o2Summary } from './o2.js';
 import { adherence, prnEntries, takenEntries, allMeds } from './meds.js';
-import { activityEntries, summary as actSummary, feelLabel } from './activity.js';
+import { activityEntries, summary as actSummary, entryActivities, painLabel, feelingText } from './activity.js';
 import { foodEntries } from './food.js';
 
 const SECTIONS = [
@@ -114,7 +114,7 @@ function build(from, to, c) {
     if (list.length) {
       const s = actSummary(list);
       sec.paras.push(`${plural(s.n, 'entry')}, ${s.minutes} active minutes${s.avgPain != null ? `, average pain ${s.avgPain}/10` : ''}${s.worstPain != null ? `, worst ${s.worstPain}/10 (${when(s.worstAt)})` : ''}.`);
-      sec.table = { head: ['Date', 'Time', 'Activity', 'Min', 'Pain', 'Feeling', 'Notes'], rows: list.map((e) => [fmtDate(dstr(new Date(e.at))), fmtStamp(e.at), e.activity, e.minutes || '', e.pain != null ? `${e.area || ''} ${e.pain}/10`.trim() : '', feelLabel(e.feeling), e.notes || '']) };
+      sec.table = { head: ['Date', 'Time', 'Activity', 'Min', 'Pain', 'Feeling', 'Notes'], rows: list.map((e) => [fmtDate(dstr(new Date(e.at))), fmtStamp(e.at), entryActivities(e).join(', ') || 'Check-in', e.minutes || '', painLabel(e), feelingText(e), e.notes || '']) };
     }
     out.push(sec);
   }
