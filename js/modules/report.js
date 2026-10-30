@@ -4,6 +4,7 @@ import { mount, h, toast, empty } from '../core/dom.js';
 import { dstr, addDays, fmtDate, fmtStamp, avg, round, copyText } from '../core/util.js';
 import { readings, stats, byDay } from './bp.js';
 import { weights, weightUnit } from './weight.js';
+import { o2Readings, summary as o2Summary } from './o2.js';
 import { adherence } from './meds.js';
 
 let range = 30;
@@ -14,8 +15,9 @@ function build(from, to) {
   const t = new Date(to + 'T23:59:59').getTime();
   const bp = readings().filter((r) => r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
   const wt = weights().filter((r) => r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
+  const o2 = o2Readings().filter((r) => r.source !== 'watch' && r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
   const days = byDay(bp);
-  return { bp, wt, days, bpStats: stats(bp), adh: adherence(from, to) };
+  return { bp, wt, o2, days, bpStats: stats(bp), adh: adherence(from, to) };
 }
 
 function asText(name, from, to, r) {
@@ -29,6 +31,11 @@ function asText(name, from, to, r) {
       const s = stats(r.days[k]);
       L.push(`${k}: avg ${s.sys}/${s.dia} (${s.n} readings: ${r.days[k].map((x) => `${x.sys}/${x.dia}`).join(', ')})`);
     }
+  } else L.push('No readings in this range.');
+  L.push('', 'OXYGEN SATURATION (fingertip oximeter)');
+  if (r.o2.length) {
+    const o = o2Summary(r.o2);
+    L.push(`${o.n} readings. Average ${o.avg}%, lowest ${o.min}%${o.pulse ? `, average pulse ${o.pulse}` : ''}.`);
   } else L.push('No readings in this range.');
   L.push('', 'WEIGHT');
   if (r.wt.length) L.push(`${r.wt[0].value} → ${r.wt[r.wt.length - 1].value} ${weightUnit()} (${r.wt.length} entries, average ${round(avg(r.wt.map((x) => x.value)), 1)}).`);
@@ -69,6 +76,8 @@ function render(root) {
       r.bp.length ? [h('p', null, h('strong', null, `${r.bpStats.n} readings. Average ${r.bpStats.sys}/${r.bpStats.dia}`), r.bpStats.pulse ? `, pulse ${r.bpStats.pulse}` : '',
         h('br'), `Highest ${Math.max(...r.bp.map((x) => x.sys))}/${Math.max(...r.bp.map((x) => x.dia))} · lowest ${Math.min(...r.bp.map((x) => x.sys))}/${Math.min(...r.bp.map((x) => x.dia))}`),
         h('table', { class: 'rep' }, h('thead', null, h('tr', null, ['Date', '#', 'Avg', 'Pulse', everyReading ? 'Readings' : 'Range'].map((x) => h('th', null, x)))), h('tbody', null, dayRows))] : empty('No readings in this range.'),
+      h('h3', null, 'Oxygen saturation (fingertip oximeter)'),
+      r.o2.length ? h('p', null, `${o2Summary(r.o2).n} readings · average ${o2Summary(r.o2).avg}% · lowest ${o2Summary(r.o2).min}%`, o2Summary(r.o2).pulse ? ` · average pulse ${o2Summary(r.o2).pulse}` : '') : empty('No readings in this range.'),
       h('h3', null, 'Weight'),
       r.wt.length ? h('p', null, `${r.wt[0].value} → ${r.wt[r.wt.length - 1].value} ${weightUnit()} · ${r.wt.length} entries · average ${round(avg(r.wt.map((x) => x.value)), 1)}`) : empty('No entries in this range.'),
       h('h3', null, 'Medication adherence'),

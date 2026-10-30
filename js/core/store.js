@@ -2,11 +2,22 @@
 import { uid } from './util.js';
 
 const KEY = 'mylife:v1';
-export const ALL_MODULES = ['meds', 'bp', 'weight', 'groceries', 'todos', 'calendar', 'journal', 'tv', 'ideas', 'report'];
+export const ALL_MODULES = ['meds', 'bp', 'o2', 'weight', 'groceries', 'todos', 'calendar', 'journal', 'tv', 'ideas', 'report'];
+// Modules that existed before knownModules was tracked.
+const ORIGINAL_MODULES = ['meds', 'bp', 'weight', 'groceries', 'todos', 'calendar', 'journal', 'tv', 'ideas', 'report'];
+
+// Turn on newly added modules for every profile once, without touching ones a user switched off earlier.
+function migrate(s) {
+  const known = s.knownModules || ORIGINAL_MODULES;
+  const added = ALL_MODULES.filter((m) => !known.includes(m));
+  if (added.length) for (const p of s.profiles) p.modules = [...new Set([...p.modules, ...added])];
+  s.knownModules = [...ALL_MODULES];
+  return s;
+}
 
 const fresh = () => {
   const id = uid();
-  return { version: 1, activeProfile: id, profiles: [{ id, name: 'Me', modules: [...ALL_MODULES] }], data: { [id]: {} } };
+  return { version: 1, activeProfile: id, knownModules: [...ALL_MODULES], profiles: [{ id, name: 'Me', modules: [...ALL_MODULES] }], data: { [id]: {} } };
 };
 
 function read() {
@@ -14,7 +25,7 @@ function read() {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s && Array.isArray(s.profiles) && s.profiles.length) return s;
+      if (s && Array.isArray(s.profiles) && s.profiles.length) return migrate(s);
     }
   } catch (e) {}
   return fresh();
@@ -86,7 +97,7 @@ export const Store = {
     const s = JSON.parse(text);
     if (!s || !Array.isArray(s.profiles) || !s.profiles.length || !s.data) throw new Error('Not a MyLife backup file.');
     delete s.exportedAt;
-    state = s;
+    state = migrate(s);
     if (!state.profiles.some((p) => p.id === state.activeProfile)) state.activeProfile = state.profiles[0].id;
     this.save();
   },

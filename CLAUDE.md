@@ -44,7 +44,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - `js/modules/`: one file per module. Each exports `{ id, name, tab?, icon, blurb, render(root), todayCard?() }`.
   To add a module: create the file, add its id to `ALL_MODULES` in `core/store.js`, register it in `modules/index.js`.
 - Built so far: Today, Meds (reminders, adherence, .ics export), Blood Pressure (voice entry, averages, chart),
-  Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
+  Oxygen & Pulse (voice, fingertip vs experimental watch readings; watch readings are excluded from the doctor report), Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
   Calendar (events plus to-do and TV dates), Journal and Food, TV and Movies, App Ideas, Doctor Report, Settings
   (profiles, module toggles, backup/restore).
 - All data stays in the browser (localStorage), per profile. Backup/restore is a JSON file in Settings.
@@ -68,6 +68,8 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - Every push to main redeploys the site in 1-2 minutes. The service worker is network-first, so reloads pick up updates.
 - Kevin likes the idea of a Bangle.js 2 watch prototype (meds alarms on the wrist, tap-to-log). He asked for SpO2, BP and irregular-rhythm detection; research says
   those are not feasible or safe on a DIY watch (see docs/research.md). Proposed instead: watch for heart rate, alarms and quick logging; validated devices for BP/SpO2.
+- Added Oxygen & Pulse module (v0.2). Store now migrates: new module ids in ALL_MODULES are switched on once for existing profiles (see migrate() in core/store.js).
+  Kevin confirmed voice entry works on his phone. He is ordering a Bangle.js 2; watch app (alarms, heart rate, tap-to-log) is the next big piece.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.
