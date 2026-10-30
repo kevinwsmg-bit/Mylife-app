@@ -195,3 +195,20 @@ table.rep th, table.rep td { text-align: left; padding: 4px 6px; border-bottom: 
 .item.stack { flex-wrap: wrap; }
 .item .actions { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; }
 .seg .btn.num { min-width: 44px; padding: 6px 0; }
+
+/* AM / PM divider bars and collapsible lists */
+.period {
+  display: flex; justify-content: space-between; align-items: center;
+  margin: 14px -14px 2px; padding: 9px 14px; background: var(--bg);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-weight: 700;
+}
+.period:first-child { margin-top: 4px; }
+.fold > summary {
+  cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 0 14px; margin-top: 10px; font-weight: 700; list-style: none;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::after { content: '▾'; color: var(--muted); font-size: 1.2rem; transition: transform .15s; }
+.fold[open] > summary::after { transform: rotate(180deg); }
+.fold[open] > summary { margin-bottom: 4px; }

@@ -33,6 +33,7 @@ function moreScreen() {
     h('div', { class: 'grid2' }, [...mods, settings].map((m) => h('a', { class: 'tile', href: `#/${m.id}` }, h('span', null, m.icon), m.name, h('small', null, m.blurb)))));
 }
 
+let lastId = null;
 function route() {
   let id = currentId();
   profileBtn.textContent = '👤 ' + Store.profile().name;
@@ -48,6 +49,8 @@ function route() {
     title.textContent = mod.name;
     drawTabs(id);
     try {
+      if (id !== lastId) mod.enter?.(); // fresh visit to a page (not a redraw)
+      lastId = id;
       mod.render(view, { onProfileChange: (go = true) => (go ? ((location.hash = '#/today'), route()) : route()) });
     } catch (e) {
       console.error(e);

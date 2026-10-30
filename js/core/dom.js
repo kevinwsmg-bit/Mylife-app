@@ -87,3 +87,12 @@ export function whenInput() {
   el.addEventListener('input', () => { touched = true; });
   return { el, at: () => (touched ? new Date(el.value).getTime() : 0) || Date.now() };
 }
+
+// Append children to an element, skipping null/false and flattening arrays (plain append() would print "null").
+export function addTo(el, ...kids) {
+  for (const k of kids.flat(Infinity)) {
+    if (k == null || k === false) continue;
+    el.append(k.nodeType ? k : document.createTextNode(String(k)));
+  }
+  return el;
+}

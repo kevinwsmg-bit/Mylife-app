@@ -80,6 +80,9 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   sw.js now fetches with cache:'no-cache' (cache name bumped to mylife-v2), app.js shows an "Update now" banner when a new service worker takes over,
   and Settings -> About & updates shows the version with a "Get the latest version" button (keeps data). BUMP `APP_VERSION` in js/core/version.js on every release
   and bump the CACHE name in sw.js if caching logic changes. A phone on an old service worker needs ~3 reloads to switch over; never tell Kevin to clear site data (it erases his logs).
+- v0.5.3: Meds page: "Full list (N)", "Past medications" and "Recent as-needed doses" are collapsible (closed on each visit via the optional module `enter()` hook called by app.js; they stay as set during redraws);
+  Today's doses and the Today-screen card have AM / PM divider bars with per-period "x/y taken". Fixed a stray "null" printed on the Meds page (plain `append(null)`); use `addTo()`/`mount()` from core/dom.js.
+  A sweep test that loads every page and greps for "null|undefined|NaN|[object" is worth keeping.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.

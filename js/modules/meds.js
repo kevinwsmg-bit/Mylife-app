@@ -1,6 +1,6 @@
 // Medications: schedules, taken/skipped log, adherence, reminders, calendar export.
 import { Store } from '../core/store.js';
-import { mount, h, whenInput, modal, confirmBox, toast, empty } from '../core/dom.js';
+import { mount, h, addTo, whenInput, modal, confirmBox, toast, empty } from '../core/dom.js';
 import { dstr, parseD, addDays, fmtTime, fmtDate, fmtStamp, toLocalInput, uid, pad, download } from '../core/util.js';
 import { notifStatus, notifSupported, askPermission, beep } from '../core/notify.js';
 
@@ -39,6 +39,18 @@ export function doseDetail(dose) {
   const span = abs >= 60 ? `${Math.floor(abs / 60)}h${abs % 60 ? ' ' + (abs % 60) + 'm' : ''}` : `${abs} min`;
   const off = abs >= 10 ? ` (${span} ${diff > 0 ? 'late' : 'early'})` : '';
   return `${e.status === 'skipped' ? 'skipped' : 'taken'} ${when}${e.status === 'taken' ? off : ''}`;
+}
+
+export const periodOf = (time) => (Number(time.split(':')[0]) < 12 ? 'am' : 'pm');
+const PERIOD_LABEL = { am: '☀️ AM · morning', pm: '🌙 PM · afternoon & evening' };
+
+// Collapsible section that stays open or closed across redraws.
+const openSec = {};
+function fold(key, summary, ...body) {
+  const el = h('details', { class: 'fold' }, h('summary', null, summary), ...body);
+  el.open = !!openSec[key];
+  el.addEventListener('toggle', () => { openSec[key] = el.open; });
+  return el;
 }
 
 export const asNeededMeds = () => data().meds.filter((m) => m.asNeeded && isCurrent(m));
@@ -279,30 +291,38 @@ function render(root) {
         h('button', { class: 'btn small', 'aria-label': `Log ${med.name} with a note or an earlier time`, onclick: () => logLater(med) }, '✎'));
     }) : h('p', { class: 'muted' }, 'For medicines you take only when you need them, with no set time. Add one, then tap “Take now” each time and the time is recorded.'),
     h('button', { class: 'btn block', style: 'margin-top:8px', onclick: () => editMed(null, { asNeeded: true, times: [] }) }, '+ Add an as-needed medication'),
-    recent.length ? [h('h3', null, 'Recent as-needed doses'), recent.map((p) => {
+    recent.length ? fold('recent', `Recent as-needed doses (${recent.length})`, recent.map((p) => {
       const med = d.meds.find((x) => x.id === p.medId);
       return h('div', { class: 'item' },
         h('div', { class: 'grow' }, h('strong', null, med ? med.name : '(removed)'), ` · ${fmtDate(dstr(new Date(p.at)))} ${fmtStamp(p.at)}`, p.note ? h('div', { class: 'muted small' }, p.note) : null),
         h('button', { class: 'btn small ghost', 'aria-label': 'Delete entry', onclick: () => { d.prn = d.prn.filter((x) => x.id !== p.id); Store.save(); rerender(); } }, '✕'));
-    })] : null);
+    })) : null);
+
+  const doseRow = (dose) => {
+    const s = doseState(dose, now);
+    return h('div', { class: 'item stack' },
+      h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : '', dose.med.notes ? h('div', { class: 'muted small' }, dose.med.notes) : null,
+        dose.entry ? h('div', { class: 'small' }, h('span', { class: `pill ${s}` }, doseDetail(dose))) : s === 'missed' ? h('div', null, h('span', { class: 'pill missed' }, 'missed')) : s === 'due' ? h('div', null, h('span', { class: 'pill due' }, 'due now')) : null),
+      dose.entry
+        ? h('button', { class: 'btn small ghost', onclick: () => { logDose(dose, null); rerender(); } }, 'Undo')
+        : h('div', { class: 'actions' },
+            h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name} at ${fmtStamp(Date.now())}`); rerender(); } }, 'Taken now'),
+            h('button', { class: 'btn small', onclick: () => takenAt(dose) }, 'Taken at…'),
+            h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped'); rerender(); } }, 'Skip')));
+  };
+  const period = (key) => {
+    const group = doses.filter((x) => periodOf(x.time) === key);
+    if (!group.length) return null;
+    const taken = group.filter((x) => x.entry?.status === 'taken').length;
+    return [h('div', { class: 'period' }, h('span', null, PERIOD_LABEL[key]), h('span', { class: 'muted small' }, `${taken}/${group.length} taken`)), group.map(doseRow)];
+  };
 
   const view = h('div', null,
     h('div', { class: 'banner' }, '⚠️ Reminders only fire while this app is open in your browser. Keep a regular phone alarm as a backup until you trust them. You can also export your schedule to your phone calendar below.'),
     prnCard,
     h('div', { class: 'card' },
       h('h2', null, "Today's doses"),
-      doses.length ? doses.map((dose) => {
-        const s = doseState(dose, now);
-        return h('div', { class: 'item stack' },
-          h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : '', dose.med.notes ? h('div', { class: 'muted small' }, dose.med.notes) : null,
-            dose.entry ? h('div', { class: 'small' }, h('span', { class: `pill ${s}` }, doseDetail(dose))) : s === 'missed' ? h('div', null, h('span', { class: 'pill missed' }, 'missed')) : s === 'due' ? h('div', null, h('span', { class: 'pill due' }, 'due now')) : null),
-          dose.entry
-            ? h('button', { class: 'btn small ghost', onclick: () => { logDose(dose, null); rerender(); } }, 'Undo')
-            : h('div', { class: 'actions' },
-                h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name} at ${fmtStamp(Date.now())}`); rerender(); } }, 'Taken now'),
-                h('button', { class: 'btn small', onclick: () => takenAt(dose) }, 'Taken at…'),
-                h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped'); rerender(); } }, 'Skip')));
-      }) : empty('Nothing scheduled today.')),
+      doses.length ? [period('am'), period('pm')] : empty('Nothing scheduled today.')),
     notifLine ? h('p', { class: 'muted small' }, notifLine) : h('button', { class: 'btn block', onclick: async () => { await askPermission(); beep(1); rerender(); } }, '🔔 Turn on notifications'),
   );
 
@@ -338,17 +358,17 @@ function render(root) {
 
   const a7 = adherence(dstr(addDays(new Date(), -6)), today);
   const a30 = adherence(dstr(addDays(new Date(), -29)), today);
-  view.append(
+  addTo(view,
     h('div', { class: 'card' }, h('h2', null, 'My medications'),
-      current.length ? current.map(medRow) : empty('No medications yet.'),
-      h('button', { class: 'btn primary block', style: 'margin-top:10px', onclick: () => editMed(null) }, '+ Add medication')),
+      h('button', { class: 'btn primary block', onclick: () => editMed(null) }, '+ Add a medicine'),
+      current.length ? fold('list', `Full list (${current.length})`, current.map(medRow)) : empty('No medications yet.')),
     h('div', { class: 'card' }, h('h2', null, 'Adherence'),
       h('div', { class: 'grid2' },
         h('div', { class: 'stat' }, h('div', { class: 'big' }, a7.pct == null ? '–' : a7.pct + '%'), h('div', { class: 'lbl' }, `Last 7 days (${a7.taken}/${a7.total})`)),
         h('div', { class: 'stat' }, h('div', { class: 'big' }, a30.pct == null ? '–' : a30.pct + '%'), h('div', { class: 'lbl' }, `Last 30 days (${a30.taken}/${a30.total})`))),
       h('p', { class: 'muted small' }, 'Missed = no response within 2 hours of the scheduled time.')),
     current.some((m) => !m.asNeeded) ? h('button', { class: 'btn block', onclick: () => { download('mylife-medications.ics', icsFor(current.filter((m) => !m.asNeeded)), 'text/calendar'); toast('Open the file to add reminders to your calendar.'); } }, '📅 Export schedule to phone calendar (.ics)') : null,
-    past.length ? h('div', { class: 'card', style: 'margin-top:14px' }, h('h2', null, 'Past medications'), past.map(medRow)) : null);
+    past.length ? h('div', { class: 'card', style: 'margin-top:14px' }, fold('past', `Past medications (${past.length})`, past.map(medRow))) : null);
 
   mount(root, view);
 }
@@ -364,7 +384,14 @@ function todayCard() {
   const refresh = () => window.dispatchEvent(new Event('mylife:refresh'));
   const card = h('div', { class: 'card' }, h('div', { class: 'row' }, h('h2', { class: 'grow' }, '💊 Medications'), doses.length ? h('span', { class: 'muted' }, `${taken}/${doses.length} taken`) : null));
   if (doses.length && !next.length) card.append(h('p', { class: 'muted' }, open.length ? 'Some doses were missed today.' : 'All done for today. 🎉'));
+  let shown = null;
   for (const dose of next) {
+    const key = periodOf(dose.time);
+    if (key !== shown) {
+      shown = key;
+      const all = doses.filter((x) => periodOf(x.time) === key);
+      card.append(h('div', { class: 'period' }, h('span', null, PERIOD_LABEL[key]), h('span', { class: 'muted small' }, `${all.filter((x) => x.entry?.status === 'taken').length}/${all.length} taken`)));
+    }
     const s = doseState(dose, now);
     card.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : ''),
       s === 'due' ? h('span', { class: 'pill due' }, 'due') : null,
@@ -380,4 +407,9 @@ function todayCard() {
   return card;
 }
 
-export default { id: 'meds', name: 'Medications', tab: 'Meds', icon: '💊', blurb: 'Reminders and dose log', render, todayCard };
+// Called when you open the Meds page (not on redraws), so the lists start collapsed each visit.
+function enter() {
+  for (const k of Object.keys(openSec)) delete openSec[k];
+}
+
+export default { id: 'meds', name: 'Medications', tab: 'Meds', icon: '💊', blurb: 'Reminders and dose log', render, enter, todayCard };
