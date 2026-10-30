@@ -5,7 +5,7 @@ import { dstr, addDays, fmtDate, fmtStamp, avg, round, copyText } from '../core/
 import { readings, stats, byDay } from './bp.js';
 import { weights, weightUnit } from './weight.js';
 import { o2Readings, summary as o2Summary } from './o2.js';
-import { adherence } from './meds.js';
+import { adherence, prnSummary } from './meds.js';
 
 let range = 30;
 let everyReading = false;
@@ -17,7 +17,7 @@ function build(from, to) {
   const wt = weights().filter((r) => r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
   const o2 = o2Readings().filter((r) => r.source !== 'watch' && r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
   const days = byDay(bp);
-  return { bp, wt, o2, days, bpStats: stats(bp), adh: adherence(from, to) };
+  return { bp, wt, o2, days, bpStats: stats(bp), adh: adherence(from, to), prn: prnSummary(f, t) };
 }
 
 function asText(name, from, to, r) {
@@ -45,6 +45,9 @@ function asText(name, from, to, r) {
     L.push(`Overall ${r.adh.pct}% taken (${r.adh.taken} taken, ${r.adh.skipped} skipped, ${r.adh.missed} missed of ${r.adh.total}).`);
     r.adh.byMed.forEach((m) => L.push(`- ${m.med.name}${m.med.dose ? ' ' + m.med.dose : ''}: ${m.taken}/${m.taken + m.skipped + m.missed} taken`));
   } else L.push('No scheduled doses in this range.');
+  L.push('', 'AS-NEEDED MEDICATIONS');
+  if (r.prn.length) r.prn.forEach((p) => L.push(`- ${p.med.name}${p.med.dose ? ' ' + p.med.dose : ''}: ${p.n} dose${p.n === 1 ? '' : 's'} (last ${new Date(p.last).toLocaleString()})`));
+  else L.push('None logged in this range.');
   L.push('', 'Self-reported log from the MyLife app. Not a medical record.');
   return L.join('\n');
 }
@@ -83,6 +86,8 @@ function render(root) {
       h('h3', null, 'Medication adherence'),
       r.adh.total ? [h('p', null, h('strong', null, `${r.adh.pct}% taken`), ` (${r.adh.taken} taken, ${r.adh.skipped} skipped, ${r.adh.missed} missed of ${r.adh.total})`),
         r.adh.byMed.map((m) => h('p', { class: 'small' }, `${m.med.name}${m.med.dose ? ' ' + m.med.dose : ''}: ${m.taken}/${m.taken + m.skipped + m.missed} taken`))] : empty('No scheduled doses in this range.'),
+      h('h3', null, 'As-needed medications'),
+      r.prn.length ? r.prn.map((p) => h('p', { class: 'small' }, `${p.med.name}${p.med.dose ? ' ' + p.med.dose : ''}: ${p.n} dose${p.n === 1 ? '' : 's'} (last ${new Date(p.last).toLocaleString()})`)) : empty('None logged in this range.'),
       h('p', { class: 'muted small' }, 'Self-reported log from the MyLife app. Not a medical record.')));
 }
 

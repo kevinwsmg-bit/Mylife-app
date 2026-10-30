@@ -43,7 +43,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   `voice.js` (speech input), `reminders.js` + `notify.js` (med alarms), `charts.js`, `util.js` (dates, spoken-text parsing).
 - `js/modules/`: one file per module. Each exports `{ id, name, tab?, icon, blurb, render(root), todayCard?() }`.
   To add a module: create the file, add its id to `ALL_MODULES` in `core/store.js`, register it in `modules/index.js`.
-- Built so far: Today, Meds (reminders, adherence, .ics export), Blood Pressure (voice entry, averages, chart),
+- Built so far: Today, Meds (scheduled reminders, adherence, .ics export; as-needed meds with one-tap "Take now" log, optional wait-hours confirm, shown on Today and in the doctor report), Blood Pressure (voice entry, averages, chart),
   Oxygen & Pulse (voice, fingertip vs experimental watch readings; watch readings are excluded from the doctor report), Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
   Calendar (events plus to-do and TV dates), Journal and Food, TV and Movies, App Ideas, Doctor Report, Settings
   (profiles, module toggles, backup/restore).
