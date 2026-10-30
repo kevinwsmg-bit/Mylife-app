@@ -11,6 +11,8 @@ log, a tracker, and eventually a replacement for many single-purpose phone apps.
 - Update the "Status / where we left off" section below at the end of every working session.
 
 ## Research
+See also `docs/boardroom.md`: a 50-persona panel ranked 30 possible modules (home maintenance/chores, bills, appointments and questions, refill runway, emergency card,
+quick-capture inbox, energy pacing, etc.), plus design cautions (no streaks/badges/guilt alerts, never store passwords, no bank linking, no medical advice). Use its build order.
 See `docs/research.md` (Walmart cart hand-off, open smartwatch options, health-sensing limits). Never present watch readings as medical-grade.
 
 ## Core principles
@@ -83,6 +85,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - v0.5.3: Meds page: "Full list (N)", "Past medications" and "Recent as-needed doses" are collapsible (closed on each visit via the optional module `enter()` hook called by app.js; they stay as set during redraws);
   Today's doses and the Today-screen card have AM / PM divider bars with per-period "x/y taken". Fixed a stray "null" printed on the Meds page (plain `append(null)`); use `addTo()`/`mount()` from core/dom.js.
   A sweep test that loads every page and greps for "null|undefined|NaN|[object" is worth keeping.
+- Boardroom done (docs/boardroom.md). Awaiting Kevin's pick of which new modules to build first; suggested order is the top 10 in that file.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.
