@@ -1,6 +1,6 @@
 // Physical activity plus how you feel (pain level and area, mood, notes), so a care team sees the full picture.
 import { Store } from '../core/store.js';
-import { mount, h, toast, confirmBox, empty } from '../core/dom.js';
+import { mount, h, whenInput, toast, confirmBox, empty } from '../core/dom.js';
 import { dstr, fmtDate, fmtStamp, avg, round, uid, toLocalInput } from '../core/util.js';
 import { micButton } from '../core/voice.js';
 import { lineChart } from '../core/charts.js';
@@ -51,7 +51,8 @@ function render(root) {
   const minutes = h('input', { type: 'number', inputmode: 'numeric', min: '0', placeholder: 'Optional', 'aria-label': 'Minutes' });
   const area = h('select', { value: d.lastArea, 'aria-label': 'Where does it hurt' }, AREAS.map((a) => h('option', { value: a }, a)));
   const notes = h('textarea', { placeholder: 'Notes: what you were doing, what it felt like, what helped or made it worse…' });
-  const when = h('input', { type: 'datetime-local', value: toLocalInput(Date.now()) });
+  const whenBox = whenInput();
+  const when = whenBox.el;
 
   const painBtns = [...Array(11).keys()].map((n) => h('button', { type: 'button', class: 'btn num', 'aria-label': `Pain ${n}`, onclick: () => {
     pain = pain === n ? null : n;
@@ -68,7 +69,7 @@ function render(root) {
     if (pain == null && feeling == null && !notes.value.trim() && !min && activity.value === 'Just checking in') {
       return toast('Add a pain level, how you feel, minutes or a note first.');
     }
-    d.entries.push({ id: uid(), at: new Date(when.value).getTime() || Date.now(), activity: activity.value, minutes: min, pain, area: area.value, feeling, notes: notes.value.trim() });
+    d.entries.push({ id: uid(), at: whenBox.at(), activity: activity.value, minutes: min, pain, area: area.value, feeling, notes: notes.value.trim() });
     d.lastArea = area.value;
     Store.save();
     toast('Saved');

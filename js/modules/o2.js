@@ -1,7 +1,7 @@
 // Oxygen saturation (SpO2) and pulse log. Fingertip oximeter readings are the trusted ones;
 // watch readings are experimental and are kept out of the doctor report.
 import { Store } from '../core/store.js';
-import { mount, h, toast, confirmBox, empty } from '../core/dom.js';
+import { mount, h, whenInput, toast, confirmBox, empty } from '../core/dom.js';
 import { dstr, fmtDate, fmtStamp, avg, round, uid, toLocalInput } from '../core/util.js';
 import { micButton } from '../core/voice.js';
 import { lineChart } from '../core/charts.js';
@@ -61,14 +61,15 @@ function render(root) {
   const pulse = h('input', { type: 'number', inputmode: 'numeric', placeholder: 'Pulse', 'aria-label': 'Pulse' });
   const source = h('select', { 'aria-label': 'Source' }, h('option', { value: 'fingertip' }, 'Fingertip oximeter'), h('option', { value: 'watch' }, 'Watch (experimental)'));
   const note = h('input', { placeholder: 'Note (optional): resting, after walking…' });
-  const when = h('input', { type: 'datetime-local', value: toLocalInput(Date.now()) });
+  const whenBox = whenInput();
+  const when = whenBox.el;
   const heard = h('p', { class: 'muted small' });
 
   const save = () => {
     const s = Number(spo2.value);
     const p = Number(pulse.value) || null;
     if (!(s >= 50 && s <= 100)) return toast('Enter the oxygen percent (50 to 100).');
-    d.readings.push({ id: uid(), at: new Date(when.value).getTime() || Date.now(), spo2: s, pulse: p, source: source.value, note: note.value.trim() });
+    d.readings.push({ id: uid(), at: whenBox.at(), spo2: s, pulse: p, source: source.value, note: note.value.trim() });
     Store.save();
     toast(`Saved ${s}%${p ? ' · pulse ' + p : ''}`);
     rerender();

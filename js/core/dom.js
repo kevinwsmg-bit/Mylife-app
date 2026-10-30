@@ -1,3 +1,4 @@
+import { toLocalInput } from './util.js';
 // Tiny DOM helpers: element builder, toast, modal sheet, confirm.
 export function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
@@ -76,4 +77,13 @@ export const empty = (text) => h('p', { class: 'empty' }, text);
 // Replace a container's contents. Accepts nested arrays and skips null/false (unlike replaceChildren).
 export function mount(root, ...kids) {
   root.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false).map((k) => (k.nodeType ? k : document.createTextNode(String(k)))));
+}
+
+// Date/time box that shows "right now" but only overrides the real time if the user edits it,
+// so a form left open for a while still stamps the moment you tap Save.
+export function whenInput() {
+  const el = h('input', { type: 'datetime-local', value: toLocalInput(Date.now()) });
+  let touched = false;
+  el.addEventListener('input', () => { touched = true; });
+  return { el, at: () => (touched ? new Date(el.value).getTime() : 0) || Date.now() };
 }

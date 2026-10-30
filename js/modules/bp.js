@@ -1,6 +1,6 @@
 // Blood pressure and heart rate log with voice entry, averages and trends.
 import { Store } from '../core/store.js';
-import { mount, h, toast, confirmBox, empty } from '../core/dom.js';
+import { mount, h, whenInput, toast, confirmBox, empty } from '../core/dom.js';
 import { dstr, fmtDate, fmtStamp, avg, round, uid, toLocalInput } from '../core/util.js';
 import { micButton } from '../core/voice.js';
 import { lineChart } from '../core/charts.js';
@@ -48,13 +48,14 @@ function render(root) {
   const dia = h('input', { type: 'number', inputmode: 'numeric', placeholder: 'Bottom', 'aria-label': 'Diastolic' });
   const pulse = h('input', { type: 'number', inputmode: 'numeric', placeholder: 'Pulse', 'aria-label': 'Heart rate' });
   const note = h('input', { placeholder: 'Note (optional): after walk, felt dizzy…' });
-  const when = h('input', { type: 'datetime-local', value: toLocalInput(Date.now()) });
+  const whenBox = whenInput();
+  const when = whenBox.el;
   const heard = h('p', { class: 'muted small' });
 
   const save = () => {
     const s = Number(sys.value), di = Number(dia.value), p = Number(pulse.value) || null;
     if (!(s >= 60 && s <= 260 && di >= 30 && di <= 160)) return toast('Enter the top and bottom numbers (e.g. 128 and 82).');
-    d.readings.push({ id: uid(), at: new Date(when.value).getTime() || Date.now(), sys: s, dia: di, pulse: p, note: note.value.trim() });
+    d.readings.push({ id: uid(), at: whenBox.at(), sys: s, dia: di, pulse: p, note: note.value.trim() });
     Store.save();
     toast(`Saved ${s}/${di}${p ? ' · pulse ' + p : ''}`);
     rerender();

@@ -1,6 +1,7 @@
 // Doctor report: choose what to include, then print/save as PDF, share, copy or download the data.
 // Nothing leaves the device unless the user chooses to share it.
 import { Store } from '../core/store.js';
+import { reportConfig } from '../core/reportcfg.js';
 import { mount, h, toast, empty } from '../core/dom.js';
 import { dstr, addDays, fmtDate, fmtStamp, avg, round, copyText, download } from '../core/util.js';
 import { readings, stats, byDay } from './bp.js';
@@ -8,6 +9,7 @@ import { weights, weightUnit } from './weight.js';
 import { o2Readings, summary as o2Summary } from './o2.js';
 import { adherence, prnEntries, takenEntries, allMeds } from './meds.js';
 import { activityEntries, summary as actSummary, feelLabel } from './activity.js';
+import { foodEntries } from './food.js';
 
 const SECTIONS = [
   ['bp', 'Blood pressure & heart rate'],
@@ -16,8 +18,9 @@ const SECTIONS = [
   ['meds', 'Prescriptions (scheduled medications)'],
   ['prn', 'As-needed medications'],
   ['activity', 'Activity & how I feel (pain, notes)'],
+  ['food', 'Food & drink log'],
 ];
-const config = () => Store.get('report', { range: 30, detail: false, show: {}, hiddenMeds: [] });
+const config = reportConfig;
 const when = (ms) => `${fmtDate(dstr(new Date(ms)))} ${fmtStamp(ms)}`;
 const dose = (m) => `${m.name}${m.dose ? ' ' + m.dose : ''}`;
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
@@ -112,6 +115,16 @@ function build(from, to, c) {
       const s = actSummary(list);
       sec.paras.push(`${plural(s.n, 'entry')}, ${s.minutes} active minutes${s.avgPain != null ? `, average pain ${s.avgPain}/10` : ''}${s.worstPain != null ? `, worst ${s.worstPain}/10 (${when(s.worstAt)})` : ''}.`);
       sec.table = { head: ['Date', 'Time', 'Activity', 'Min', 'Pain', 'Feeling', 'Notes'], rows: list.map((e) => [fmtDate(dstr(new Date(e.at))), fmtStamp(e.at), e.activity, e.minutes || '', e.pain != null ? `${e.area || ''} ${e.pain}/10`.trim() : '', feelLabel(e.feeling), e.notes || '']) };
+    }
+    out.push(sec);
+  }
+  if (on('food')) {
+    const list = foodEntries().filter(inR).sort((a, b) => a.at - b.at);
+    const sec = { key: 'food', title: title('food'), paras: [], table: null, none: list.length ? null : 'No entries in this range.' };
+    if (list.length) {
+      const dayCount = new Set(list.map((e) => dstr(new Date(e.at)))).size;
+      sec.paras.push(`${plural(list.length, 'entry')} across ${plural(dayCount, 'day')}.`);
+      sec.table = { head: ['Date', 'Time', 'Meal', 'What I ate or drank', 'Note'], rows: list.map((e) => [fmtDate(dstr(new Date(e.at))), fmtStamp(e.at), e.meal || '', e.text, e.note || '']) };
     }
     out.push(sec);
   }

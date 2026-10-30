@@ -4,6 +4,7 @@ import meds from './meds.js';
 import bp from './bp.js';
 import o2 from './o2.js';
 import activity from './activity.js';
+import food from './food.js';
 import weight from './weight.js';
 import groceries from './groceries.js';
 import todos from './todos.js';
@@ -14,7 +15,7 @@ import ideas from './ideas.js';
 import report from './report.js';
 import settings, { setSettingsModules } from './settings.js';
 
-export const MODULES = [today, meds, bp, o2, activity, weight, groceries, todos, calendar, journal, tv, ideas, report];
+export const MODULES = [today, meds, bp, o2, activity, food, weight, groceries, todos, calendar, journal, tv, ideas, report];
 export { settings };
 setModuleSource(() => MODULES);
 setSettingsModules(() => MODULES);

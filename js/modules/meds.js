@@ -1,6 +1,6 @@
 // Medications: schedules, taken/skipped log, adherence, reminders, calendar export.
 import { Store } from '../core/store.js';
-import { mount, h, modal, confirmBox, toast, empty } from '../core/dom.js';
+import { mount, h, whenInput, modal, confirmBox, toast, empty } from '../core/dom.js';
 import { dstr, parseD, addDays, fmtTime, fmtDate, fmtStamp, toLocalInput, uid, pad, download } from '../core/util.js';
 import { notifStatus, notifSupported, askPermission, beep } from '../core/notify.js';
 
@@ -259,11 +259,12 @@ function render(root) {
   const todayCount = (med) => d.prn.filter((p) => p.medId === med.id && dstr(new Date(p.at)) === today).length;
   const recent = [...d.prn].sort((a, b) => b.at - a.at).slice(0, 8);
   const logLater = (med) => {
-    const when = h('input', { type: 'datetime-local', value: toLocalInput(Date.now()) });
+    const whenBox = whenInput();
+  const when = whenBox.el;
     const note = h('input', { placeholder: 'Note (optional): reason, how you feel…' });
     modal(`Log ${med.name}`, h('div', null, h('label', { class: 'field' }, 'When'), when, h('label', { class: 'field' }, 'Note'), note),
       [{ label: 'Cancel' }, { label: 'Save', kind: 'primary', onClick: () => {
-        logPrn(med, { at: new Date(when.value).getTime() || Date.now(), note: note.value.trim() });
+        logPrn(med, { at: whenBox.at(), note: note.value.trim() });
         toast(`Logged ${med.name}`);
         rerender();
       } }]);

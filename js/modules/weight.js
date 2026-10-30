@@ -1,6 +1,6 @@
 // Daily weigh-in with a trend line.
 import { Store } from '../core/store.js';
-import { mount, h, toast, confirmBox, empty } from '../core/dom.js';
+import { mount, h, whenInput, toast, confirmBox, empty } from '../core/dom.js';
 import { dstr, fmtDate, avg, round, uid, toLocalInput } from '../core/util.js';
 import { micButton } from '../core/voice.js';
 import { lineChart } from '../core/charts.js';
@@ -13,11 +13,12 @@ function render(root) {
   const d = data();
   const rerender = () => render(root);
   const value = h('input', { type: 'number', inputmode: 'decimal', step: '0.1', placeholder: `Weight (${d.unit})`, 'aria-label': 'Weight' });
-  const when = h('input', { type: 'datetime-local', value: toLocalInput(Date.now()) });
+  const whenBox = whenInput();
+  const when = whenBox.el;
   const save = () => {
     const v = Number(value.value);
     if (!(v > 20 && v < 1500)) return toast('Enter your weight.');
-    d.entries.push({ id: uid(), at: new Date(when.value).getTime() || Date.now(), value: v });
+    d.entries.push({ id: uid(), at: whenBox.at(), value: v });
     Store.save();
     toast(`Saved ${v} ${d.unit}`);
     rerender();
