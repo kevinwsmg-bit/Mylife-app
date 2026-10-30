@@ -33,9 +33,27 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 6. TV and movies: release dates and episode reminders (Dexter, etc.).
 7. Interest modules per person (e.g. Reds games for his father).
 
+## Architecture (v0.1)
+- Installable web app (PWA): plain HTML, CSS and JavaScript modules. No build step, no dependencies.
+  Open `index.html` through any static web server (for example `python3 -m http.server`).
+- `js/core/`: `store.js` (profiles and per-profile data in localStorage), `dom.js` (h(), mount(), modal),
+  `voice.js` (speech input), `reminders.js` + `notify.js` (med alarms), `charts.js`, `util.js` (dates, spoken-text parsing).
+- `js/modules/`: one file per module. Each exports `{ id, name, tab?, icon, blurb, render(root), todayCard?() }`.
+  To add a module: create the file, add its id to `ALL_MODULES` in `core/store.js`, register it in `modules/index.js`.
+- Built so far: Today, Meds (reminders, adherence, .ics export), Blood Pressure (voice entry, averages, chart),
+  Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
+  Calendar (events plus to-do and TV dates), Journal and Food, TV and Movies, App Ideas, Doctor Report, Settings
+  (profiles, module toggles, backup/restore).
+- All data stays in the browser (localStorage), per profile. Backup/restore is a JSON file in Settings.
+- Lessons learned: `replaceChildren` stringifies arrays and null, so always use `mount()` from `core/dom.js`.
+
+## Known limits
+- Med reminders only fire while the app is open in the browser (no server push yet). Backup: Meds -> export .ics to phone calendar.
+- No cloud sync between devices yet; each device keeps its own data. Use backup/restore to move data.
+- TV dates are entered by hand. Walmart is a list hand-off (copy/share/search links), not automatic add-to-cart.
+
 ## Open decisions (ask Kevin before building)
-- Platform: installable web app (PWA) first, versus a native Android app. Recommended: PWA first
-  for speed and one codebase across phone, computer and his father's device.
+- Hosting: GitHub Pages needs a public repo on a free GitHub plan (code only, no personal data). Alternatives: Netlify or Cloudflare Pages.
 - Reliability of med alarms: PWA notifications can be unreliable when the app is closed. May need
   a small server for push notifications, or a native Android build for exact alarms.
 - Where real data is stored and synced (on-device only at first; private backend later).
@@ -43,6 +61,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   or a deep link. Needs research before promising.
 
 ## Status / where we left off
-- Repo created and connected to Claude. Vision and module brainstorm written. No app code yet.
-- Next step: Kevin picks platform approach and the first module (suggested: Blood Pressure log plus
-  Medications), then we build a minimal working version.
+- v0.1 built and tested in a headless browser (all modules, alarm firing, profiles, backup, service worker).
+- Not yet hosted: Kevin needs a way to open it on his phone (see open decision on hosting below).
+- Next: host it, try it on the phone, then iterate. Likely next steps: reliable alarms (push server or native Android),
+  cross-device sync, TV release dates from an API, Walmart hand-off research.
