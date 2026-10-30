@@ -1,94 +1,187 @@
-// Doctor report: BP, weight and medication adherence for a date range. Print/save as PDF or copy as text.
+// Doctor report: choose what to include, then print/save as PDF, share, copy or download the data.
+// Nothing leaves the device unless the user chooses to share it.
 import { Store } from '../core/store.js';
 import { mount, h, toast, empty } from '../core/dom.js';
-import { dstr, addDays, fmtDate, fmtStamp, avg, round, copyText } from '../core/util.js';
+import { dstr, addDays, fmtDate, fmtStamp, avg, round, copyText, download } from '../core/util.js';
 import { readings, stats, byDay } from './bp.js';
 import { weights, weightUnit } from './weight.js';
 import { o2Readings, summary as o2Summary } from './o2.js';
-import { adherence, prnSummary } from './meds.js';
+import { adherence, prnEntries, takenEntries, allMeds } from './meds.js';
+import { activityEntries, summary as actSummary, feelLabel } from './activity.js';
 
-let range = 30;
-let everyReading = false;
+const SECTIONS = [
+  ['bp', 'Blood pressure & heart rate'],
+  ['o2', 'Oxygen & pulse (fingertip readings)'],
+  ['weight', 'Weight'],
+  ['meds', 'Prescriptions (scheduled medications)'],
+  ['prn', 'As-needed medications'],
+  ['activity', 'Activity & how I feel (pain, notes)'],
+];
+const config = () => Store.get('report', { range: 30, detail: false, show: {}, hiddenMeds: [] });
+const when = (ms) => `${fmtDate(dstr(new Date(ms)))} ${fmtStamp(ms)}`;
+const dose = (m) => `${m.name}${m.dose ? ' ' + m.dose : ''}`;
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
-function build(from, to) {
+// Each section: { key, title, paras: [string], table: { head, rows } | null, none: string | null }
+function build(from, to, c) {
   const f = new Date(from + 'T00:00').getTime();
   const t = new Date(to + 'T23:59:59').getTime();
-  const bp = readings().filter((r) => r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
-  const wt = weights().filter((r) => r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
-  const o2 = o2Readings().filter((r) => r.source !== 'watch' && r.at >= f && r.at <= t).sort((a, b) => a.at - b.at);
-  const days = byDay(bp);
-  return { bp, wt, o2, days, bpStats: stats(bp), adh: adherence(from, to), prn: prnSummary(f, t) };
+  const on = (k) => c.show[k] !== false;
+  const hidden = new Set(c.hiddenMeds);
+  const inR = (r) => r.at >= f && r.at <= t;
+  const out = [];
+  const title = (k) => SECTIONS.find((s) => s[0] === k)[1];
+
+  if (on('bp')) {
+    const list = readings().filter(inR).sort((a, b) => a.at - b.at);
+    const sec = { key: 'bp', title: title('bp'), paras: [], table: null, none: list.length ? null : 'No readings in this range.' };
+    if (list.length) {
+      const s = stats(list);
+      sec.paras.push(`${plural(s.n, 'reading')}. Average ${s.sys}/${s.dia}${s.pulse ? `, pulse ${s.pulse}` : ''}.`,
+        `Highest ${Math.max(...list.map((x) => x.sys))}/${Math.max(...list.map((x) => x.dia))}, lowest ${Math.min(...list.map((x) => x.sys))}/${Math.min(...list.map((x) => x.dia))}.`);
+      if (c.detail) sec.table = { head: ['Date', 'Time', 'BP', 'Pulse', 'Note'], rows: list.map((x) => [fmtDate(dstr(new Date(x.at))), fmtStamp(x.at), `${x.sys}/${x.dia}`, x.pulse || '', x.note || '']) };
+      else {
+        const days = byDay(list);
+        sec.table = { head: ['Date', '#', 'Average', 'Pulse', 'Range'], rows: Object.keys(days).sort().map((k) => {
+          const l = days[k], ds = stats(l);
+          return [fmtDate(k), ds.n, `${ds.sys}/${ds.dia}`, ds.pulse || '', `${Math.min(...l.map((x) => x.sys))}-${Math.max(...l.map((x) => x.sys))} / ${Math.min(...l.map((x) => x.dia))}-${Math.max(...l.map((x) => x.dia))}`];
+        }) };
+      }
+    }
+    out.push(sec);
+  }
+
+  if (on('o2')) {
+    const list = o2Readings().filter((r) => r.source !== 'watch' && inR(r)).sort((a, b) => a.at - b.at);
+    const sec = { key: 'o2', title: title('o2'), paras: [], table: null, none: list.length ? null : 'No readings in this range.' };
+    if (list.length) {
+      const o = o2Summary(list);
+      sec.paras.push(`${plural(o.n, 'reading')}. Average ${o.avg}%, lowest ${o.min}%${o.pulse ? `, average pulse ${o.pulse}` : ''}.`);
+      if (c.detail) sec.table = { head: ['Date', 'Time', 'O2 %', 'Pulse', 'Note'], rows: list.map((x) => [fmtDate(dstr(new Date(x.at))), fmtStamp(x.at), x.spo2, x.pulse || '', x.note || '']) };
+    }
+    out.push(sec);
+  }
+
+  if (on('weight')) {
+    const list = weights().filter(inR).sort((a, b) => a.at - b.at);
+    const sec = { key: 'weight', title: title('weight'), paras: [], table: null, none: list.length ? null : 'No entries in this range.' };
+    if (list.length) {
+      sec.paras.push(`${list[0].value} to ${list[list.length - 1].value} ${weightUnit()} (${plural(list.length, 'entry')}, average ${round(avg(list.map((x) => x.value)), 1)}).`);
+      if (c.detail) sec.table = { head: ['Date', 'Weight'], rows: list.map((x) => [when(x.at), `${x.value} ${weightUnit()}`]) };
+    }
+    out.push(sec);
+  }
+
+  if (on('meds')) {
+    const a = adherence(from, to);
+    const by = a.byMed.filter((m) => !hidden.has(m.med.id));
+    const sum = by.reduce((s, m) => ({ taken: s.taken + m.taken, skipped: s.skipped + m.skipped, missed: s.missed + m.missed }), { taken: 0, skipped: 0, missed: 0 });
+    const total = sum.taken + sum.skipped + sum.missed;
+    const sec = { key: 'meds', title: title('meds'), paras: [], table: null, none: total ? null : 'No scheduled doses in this range.' };
+    if (total) {
+      sec.paras.push(`Overall ${Math.round((sum.taken / total) * 100)}% taken (${sum.taken} taken, ${sum.skipped} skipped, ${sum.missed} missed of ${total}).`,
+        ...by.map((m) => `${dose(m.med)}: ${m.taken}/${m.taken + m.skipped + m.missed} taken`));
+      if (c.detail) {
+        const log = takenEntries(from, to).filter((l) => !hidden.has(l.med.id) && !l.med.asNeeded);
+        sec.table = { head: ['Date', 'Medication', 'Scheduled', 'Status', 'Recorded at'], rows: log.map((l) => [fmtDate(l.date), dose(l.med), l.time, l.status, fmtStamp(l.at)]) };
+      }
+    }
+    out.push(sec);
+  }
+
+  if (on('prn')) {
+    const list = prnEntries(f, t).filter((p) => !hidden.has(p.med.id));
+    const sec = { key: 'prn', title: title('prn'), paras: [], table: null, none: list.length ? null : 'None logged in this range.' };
+    if (list.length) {
+      const by = {};
+      for (const p of list) {
+        const e = (by[p.med.id] ||= { med: p.med, n: 0, last: 0 });
+        e.n++;
+        e.last = Math.max(e.last, p.at);
+      }
+      sec.paras.push(...Object.values(by).map((m) => `${dose(m.med)}: ${plural(m.n, 'dose')} (last ${when(m.last)})`));
+      sec.table = { head: ['Date', 'Time', 'Medication', 'Note'], rows: list.map((p) => [fmtDate(dstr(new Date(p.at))), fmtStamp(p.at), dose(p.med), p.note || '']) };
+    }
+    out.push(sec);
+  }
+
+  if (on('activity')) {
+    const list = activityEntries().filter(inR).sort((a, b) => a.at - b.at);
+    const sec = { key: 'activity', title: title('activity'), paras: [], table: null, none: list.length ? null : 'No entries in this range.' };
+    if (list.length) {
+      const s = actSummary(list);
+      sec.paras.push(`${plural(s.n, 'entry')}, ${s.minutes} active minutes${s.avgPain != null ? `, average pain ${s.avgPain}/10` : ''}${s.worstPain != null ? `, worst ${s.worstPain}/10 (${when(s.worstAt)})` : ''}.`);
+      sec.table = { head: ['Date', 'Time', 'Activity', 'Min', 'Pain', 'Feeling', 'Notes'], rows: list.map((e) => [fmtDate(dstr(new Date(e.at))), fmtStamp(e.at), e.activity, e.minutes || '', e.pain != null ? `${e.area || ''} ${e.pain}/10`.trim() : '', feelLabel(e.feeling), e.notes || '']) };
+    }
+    out.push(sec);
+  }
+  return out;
 }
 
-function asText(name, from, to, r) {
-  const L = [`Health summary for ${name}`, `${fmtDate(from)} to ${fmtDate(to)}`, ''];
-  L.push('BLOOD PRESSURE');
-  if (r.bp.length) {
-    const sys = r.bp.map((x) => x.sys), dia = r.bp.map((x) => x.dia);
-    L.push(`${r.bpStats.n} readings. Average ${r.bpStats.sys}/${r.bpStats.dia}${r.bpStats.pulse ? `, pulse ${r.bpStats.pulse}` : ''}.`,
-      `Highest ${Math.max(...sys)}/${Math.max(...dia)}, lowest ${Math.min(...sys)}/${Math.min(...dia)}.`, '');
-    for (const k of Object.keys(r.days).sort()) {
-      const s = stats(r.days[k]);
-      L.push(`${k}: avg ${s.sys}/${s.dia} (${s.n} readings: ${r.days[k].map((x) => `${x.sys}/${x.dia}`).join(', ')})`);
-    }
-  } else L.push('No readings in this range.');
-  L.push('', 'OXYGEN SATURATION (fingertip oximeter)');
-  if (r.o2.length) {
-    const o = o2Summary(r.o2);
-    L.push(`${o.n} readings. Average ${o.avg}%, lowest ${o.min}%${o.pulse ? `, average pulse ${o.pulse}` : ''}.`);
-  } else L.push('No readings in this range.');
-  L.push('', 'WEIGHT');
-  if (r.wt.length) L.push(`${r.wt[0].value} → ${r.wt[r.wt.length - 1].value} ${weightUnit()} (${r.wt.length} entries, average ${round(avg(r.wt.map((x) => x.value)), 1)}).`);
-  else L.push('No entries in this range.');
-  L.push('', 'MEDICATION ADHERENCE');
-  if (r.adh.total) {
-    L.push(`Overall ${r.adh.pct}% taken (${r.adh.taken} taken, ${r.adh.skipped} skipped, ${r.adh.missed} missed of ${r.adh.total}).`);
-    r.adh.byMed.forEach((m) => L.push(`- ${m.med.name}${m.med.dose ? ' ' + m.med.dose : ''}: ${m.taken}/${m.taken + m.skipped + m.missed} taken`));
-  } else L.push('No scheduled doses in this range.');
-  L.push('', 'AS-NEEDED MEDICATIONS');
-  if (r.prn.length) r.prn.forEach((p) => L.push(`- ${p.med.name}${p.med.dose ? ' ' + p.med.dose : ''}: ${p.n} dose${p.n === 1 ? '' : 's'} (last ${new Date(p.last).toLocaleString()})`));
-  else L.push('None logged in this range.');
+function asText(name, from, to, sections) {
+  const L = [`Health summary for ${name}`, `${fmtDate(from)} to ${fmtDate(to)}`];
+  for (const s of sections) {
+    L.push('', s.title.toUpperCase());
+    if (s.none) { L.push(s.none); continue; }
+    L.push(...s.paras);
+    if (s.table) L.push('', s.table.head.join(' | '), ...s.table.rows.map((r) => r.join(' | ')));
+  }
   L.push('', 'Self-reported log from the MyLife app. Not a medical record.');
   return L.join('\n');
 }
 
-function render(root) {
-  const rerender = () => render(root);
-  const to = dstr();
-  const from = dstr(addDays(new Date(), -(range - 1)));
-  const name = Store.profile().name;
-  const r = build(from, to);
-
-  const seg = h('div', { class: 'seg no-print' }, [7, 14, 30, 60, 90].map((n) => h('button', { class: `btn ${range === n ? 'on' : ''}`, onclick: () => { range = n; rerender(); } }, `${n} days`)));
-  const opt = h('label', { class: 'row no-print', style: 'margin:6px 0' }, h('input', { type: 'checkbox', checked: everyReading, onchange: (e) => { everyReading = e.target.checked; rerender(); } }), 'List every reading (longer)');
-
-  const dayRows = Object.keys(r.days).sort().map((k) => {
-    const list = r.days[k];
-    const s = stats(list);
-    return h('tr', null, h('td', null, fmtDate(k)), h('td', null, s.n), h('td', null, `${s.sys}/${s.dia}`), h('td', null, s.pulse || '–'),
-      h('td', null, everyReading ? list.sort((a, b) => a.at - b.at).map((x) => `${fmtStamp(x.at)} ${x.sys}/${x.dia}${x.pulse ? ' ♥' + x.pulse : ''}`).join(' · ') : `${Math.min(...list.map((x) => x.sys))}–${Math.max(...list.map((x) => x.sys))} / ${Math.min(...list.map((x) => x.dia))}–${Math.max(...list.map((x) => x.dia))}`));
-  });
-
-  mount(root, 
-    h('div', { class: 'card no-print' }, h('h2', null, 'Doctor report'), seg, opt,
-      h('div', { class: 'row wrap' },
-        h('button', { class: 'btn primary', onclick: () => window.print() }, '🖨 Print / Save as PDF'),
-        h('button', { class: 'btn', onclick: async () => toast((await copyText(asText(name, from, to, r))) ? 'Copied. Paste into a message or email.' : 'Could not copy.') }, '📋 Copy as text'))),
-    h('div', { class: 'card' }, h('h2', null, `Health summary: ${name}`), h('p', { class: 'muted' }, `${fmtDate(from)} to ${fmtDate(to)}`),
-      h('h3', null, 'Blood pressure'),
-      r.bp.length ? [h('p', null, h('strong', null, `${r.bpStats.n} readings. Average ${r.bpStats.sys}/${r.bpStats.dia}`), r.bpStats.pulse ? `, pulse ${r.bpStats.pulse}` : '',
-        h('br'), `Highest ${Math.max(...r.bp.map((x) => x.sys))}/${Math.max(...r.bp.map((x) => x.dia))} · lowest ${Math.min(...r.bp.map((x) => x.sys))}/${Math.min(...r.bp.map((x) => x.dia))}`),
-        h('table', { class: 'rep' }, h('thead', null, h('tr', null, ['Date', '#', 'Avg', 'Pulse', everyReading ? 'Readings' : 'Range'].map((x) => h('th', null, x)))), h('tbody', null, dayRows))] : empty('No readings in this range.'),
-      h('h3', null, 'Oxygen saturation (fingertip oximeter)'),
-      r.o2.length ? h('p', null, `${o2Summary(r.o2).n} readings · average ${o2Summary(r.o2).avg}% · lowest ${o2Summary(r.o2).min}%`, o2Summary(r.o2).pulse ? ` · average pulse ${o2Summary(r.o2).pulse}` : '') : empty('No readings in this range.'),
-      h('h3', null, 'Weight'),
-      r.wt.length ? h('p', null, `${r.wt[0].value} → ${r.wt[r.wt.length - 1].value} ${weightUnit()} · ${r.wt.length} entries · average ${round(avg(r.wt.map((x) => x.value)), 1)}`) : empty('No entries in this range.'),
-      h('h3', null, 'Medication adherence'),
-      r.adh.total ? [h('p', null, h('strong', null, `${r.adh.pct}% taken`), ` (${r.adh.taken} taken, ${r.adh.skipped} skipped, ${r.adh.missed} missed of ${r.adh.total})`),
-        r.adh.byMed.map((m) => h('p', { class: 'small' }, `${m.med.name}${m.med.dose ? ' ' + m.med.dose : ''}: ${m.taken}/${m.taken + m.skipped + m.missed} taken`))] : empty('No scheduled doses in this range.'),
-      h('h3', null, 'As-needed medications'),
-      r.prn.length ? r.prn.map((p) => h('p', { class: 'small' }, `${p.med.name}${p.med.dose ? ' ' + p.med.dose : ''}: ${p.n} dose${p.n === 1 ? '' : 's'} (last ${new Date(p.last).toLocaleString()})`)) : empty('None logged in this range.'),
-      h('p', { class: 'muted small' }, 'Self-reported log from the MyLife app. Not a medical record.')));
+const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+function asCsv(from, to, c) {
+  const rows = [['type', 'date', 'time', 'item', 'value_1', 'value_2', 'value_3', 'notes']];
+  for (const s of build(from, to, { ...c, detail: true })) {
+    if (!s.table) continue;
+    for (const r of s.table.rows) rows.push([s.key, ...r]);
+  }
+  return rows.map((r) => r.map(csvCell).join(',')).join('\n');
 }
 
-export default { id: 'report', name: 'Doctor Report', icon: '🩺', blurb: 'Printable summary for visits', render };
+function render(root) {
+  const c = config();
+  const refresh = () => { const y = window.scrollY; render(root); window.scrollTo(0, y); };
+  const to = dstr();
+  const from = dstr(addDays(new Date(), -((c.range || 30) - 1)));
+  const name = Store.profile().name;
+  const sections = build(from, to, c);
+
+  const toggle = (label, checked, onChange, sub) => h('label', { class: 'item' },
+    h('input', { type: 'checkbox', checked, onchange: (e) => onChange(e.target.checked) }), h('div', { class: 'grow' }, label, sub ? h('div', { class: 'muted small' }, sub) : null));
+
+  const meds = allMeds();
+  const medToggle = (m) => toggle(dose(m), !c.hiddenMeds.includes(m.id), (on) => {
+    c.hiddenMeds = on ? c.hiddenMeds.filter((x) => x !== m.id) : [...c.hiddenMeds, m.id];
+    Store.save(); refresh();
+  }, m.end ? `until ${fmtDate(m.end)}` : null);
+  const scheduled = meds.filter((m) => !m.asNeeded);
+  const asNeeded = meds.filter((m) => m.asNeeded);
+
+  const controls = h('div', { class: 'card no-print' }, h('h2', null, 'Doctor report'),
+    h('div', { class: 'seg' }, [7, 14, 30, 60, 90].map((n) => h('button', { class: `btn ${c.range === n ? 'on' : ''}`, onclick: () => { c.range = n; Store.save(); refresh(); } }, `${n} days`))),
+    h('h3', null, 'Include'),
+    SECTIONS.map(([k, label]) => toggle(label, c.show[k] !== false, (on) => { c.show[k] = on; Store.save(); refresh(); })),
+    scheduled.length ? [h('h3', null, 'Prescriptions to include'), scheduled.map(medToggle)] : null,
+    asNeeded.length ? [h('h3', null, 'As-needed medications to include'), asNeeded.map(medToggle)] : null,
+    h('h3', null, 'Detail'),
+    toggle('List every reading and dose with times', !!c.detail, (on) => { c.detail = on; Store.save(); refresh(); }, 'Longer, but shows exact times.'),
+    h('div', { class: 'row wrap', style: 'margin-top:12px' },
+      h('button', { class: 'btn primary', onclick: () => window.print() }, '🖨 Print / Save as PDF'),
+      navigator.share ? h('button', { class: 'btn', onclick: () => navigator.share({ title: `Health summary for ${name}`, text: asText(name, from, to, sections) }).catch(() => {}) }, '↗ Share') : null,
+      h('button', { class: 'btn', onclick: async () => toast((await copyText(asText(name, from, to, sections))) ? 'Copied. Paste into a message or email.' : 'Could not copy.') }, '📋 Copy text'),
+      h('button', { class: 'btn', onclick: () => { download(`mylife-data-${dstr()}.csv`, asCsv(from, to, c), 'text/csv'); toast('Downloaded. Open it in a spreadsheet app.'); } }, '⬇ Data file (CSV)')),
+    h('p', { class: 'muted small' }, 'Nothing leaves your phone until you choose to share. To give this to your doctor: Save as PDF or Share, then send it through their patient portal, email or text. I can’t send it to a doctor’s system directly.'));
+
+  const preview = h('div', { class: 'card' }, h('h2', null, `Health summary: ${name}`), h('p', { class: 'muted' }, `${fmtDate(from)} to ${fmtDate(to)}`),
+    sections.length ? sections.map((s) => [h('h3', null, s.title),
+      s.none ? empty(s.none) : [s.paras.map((p) => h('p', { class: 'small' }, p)),
+        s.table ? h('table', { class: 'rep' }, h('thead', null, h('tr', null, s.table.head.map((x) => h('th', null, x)))), h('tbody', null, s.table.rows.map((r) => h('tr', null, r.map((x) => h('td', null, x)))))) : null]])
+      : empty('Everything is switched off. Turn on a section above.'),
+    h('p', { class: 'muted small' }, 'Self-reported log from the MyLife app. Not a medical record.'));
+
+  mount(root, controls, preview);
+}
+
+export default { id: 'report', name: 'Doctor Report', icon: '🩺', blurb: 'Choose what to share with your doctor', render };

@@ -11,7 +11,7 @@ function render(root) {
   const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   const cards = [];
   // order matters: what you need first
-  for (const id of ['meds', 'bp', 'o2', 'todos', 'calendar', 'tv', 'groceries', 'weight', 'journal']) {
+  for (const id of ['meds', 'bp', 'o2', 'activity', 'todos', 'calendar', 'tv', 'groceries', 'weight', 'journal']) {
     const mod = getModules().find((m) => m.id === id);
     if (!mod || !Store.enabled(id) || !mod.todayCard) continue;
     const c = mod.todayCard();

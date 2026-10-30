@@ -37,7 +37,7 @@ function ring(dose) {
     setTimeout(() => window.dispatchEvent(new Event('mylife:refresh')), 0); // after the modal closes
   };
   open = modal('Medication reminder', body, [
-    { label: '✓ Taken', kind: 'primary', onClick: done('taken') },
+    { label: '✓ Taken now', kind: 'primary', onClick: done('taken') },
     { label: 'Snooze 10 min', onClick: () => { open = null; } },
     { label: 'Skip', onClick: done('skipped') },
   ]);

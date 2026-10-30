@@ -44,8 +44,8 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - `js/modules/`: one file per module. Each exports `{ id, name, tab?, icon, blurb, render(root), todayCard?() }`.
   To add a module: create the file, add its id to `ALL_MODULES` in `core/store.js`, register it in `modules/index.js`.
 - Built so far: Today, Meds (scheduled reminders, adherence, .ics export; as-needed meds with one-tap "Take now" log, optional wait-hours confirm, shown on Today and in the doctor report), Blood Pressure (voice entry, averages, chart),
-  Oxygen & Pulse (voice, fingertip vs experimental watch readings; watch readings are excluded from the doctor report), Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
-  Calendar (events plus to-do and TV dates), Journal and Food, TV and Movies, App Ideas, Doctor Report, Settings
+  Activity & How I Feel (activity, minutes, pain level/area, mood, notes; one-tap pain log on Today), Oxygen & Pulse (voice, fingertip vs experimental watch readings; watch readings are excluded from the doctor report), Weight, Groceries (voice, regulars, copy/share/Walmart search links), To-Do (voice, due dates),
+  Calendar (events plus to-do and TV dates), Journal and Food, TV and Movies, App Ideas, Doctor Report (per-section and per-medication toggles, PDF/share/copy/CSV, optional every-reading detail), Settings
   (profiles, module toggles, backup/restore).
 - All data stays in the browser (localStorage), per profile. Backup/restore is a JSON file in Settings.
 - Lessons learned: `replaceChildren` stringifies arrays and null, so always use `mount()` from `core/dom.js`.
@@ -70,6 +70,8 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   those are not feasible or safe on a DIY watch (see docs/research.md). Proposed instead: watch for heart rate, alarms and quick logging; validated devices for BP/SpO2.
 - Added Oxygen & Pulse module (v0.2). Store now migrates: new module ids in ALL_MODULES are switched on once for existing profiles (see migrate() in core/store.js).
   Kevin confirmed voice entry works on his phone. He is ordering a Bangle.js 2; watch app (alarms, heart rate, tap-to-log) is the next big piece.
+- v0.3: scheduled doses record the actual time taken (Taken now / Taken at… / Skip, shows how early or late); Activity & How I Feel module; Doctor Report rebuilt with toggles and sharing.
+  Sharing is user-initiated only (Share sheet, PDF, copy, CSV); the app cannot send directly to a doctor's system.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.

@@ -12,6 +12,35 @@ const data = () => {
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export const isCurrent = (med, today = dstr()) => !med.end || med.end >= today;
+export const allMeds = () => data().meds;
+
+// As-needed doses between two timestamps, oldest first, each with its medication.
+export function prnEntries(fromMs, toMs) {
+  const d = data();
+  return d.prn.filter((p) => p.at >= fromMs && p.at <= toMs)
+    .map((p) => ({ ...p, med: d.meds.find((m) => m.id === p.medId) })).filter((p) => p.med).sort((a, b) => a.at - b.at);
+}
+
+// Scheduled-dose log entries (taken/skipped with the time recorded) between two dates.
+export function takenEntries(fromDate, toDate) {
+  const d = data();
+  return d.log.filter((l) => l.date >= fromDate && l.date <= toDate)
+    .map((l) => ({ ...l, med: d.meds.find((m) => m.id === l.medId) })).filter((l) => l.med)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+}
+
+// "taken 9:45 AM (45 min late)" for a logged scheduled dose.
+export function doseDetail(dose) {
+  const e = dose.entry;
+  if (!e) return '';
+  const when = fmtStamp(e.at);
+  const diff = Math.round((e.at - dose.due) / 60000);
+  const abs = Math.abs(diff);
+  const span = abs >= 60 ? `${Math.floor(abs / 60)}h${abs % 60 ? ' ' + (abs % 60) + 'm' : ''}` : `${abs} min`;
+  const off = abs >= 10 ? ` (${span} ${diff > 0 ? 'late' : 'early'})` : '';
+  return `${e.status === 'skipped' ? 'skipped' : 'taken'} ${when}${e.status === 'taken' ? off : ''}`;
+}
+
 export const asNeededMeds = () => data().meds.filter((m) => m.asNeeded && isCurrent(m));
 const lastPrn = (med) => data().prn.filter((p) => p.medId === med.id).sort((a, b) => b.at - a.at)[0];
 
@@ -85,10 +114,10 @@ export function doseState(dose, now = new Date()) {
   return mins > 120 ? 'missed' : 'due';
 }
 
-export function logDose(dose, status) {
+export function logDose(dose, status, at = Date.now()) {
   const d = data();
   d.log = d.log.filter((l) => l.key !== dose.key);
-  if (status) d.log.push({ key: dose.key, medId: dose.med.id, date: dose.date, time: dose.time, status, at: Date.now() });
+  if (status) d.log.push({ key: dose.key, medId: dose.med.id, date: dose.date, time: dose.time, status, at });
   Store.save();
 }
 
@@ -214,6 +243,18 @@ function render(root) {
         ? 'Notifications are blocked. Allow them in the browser site settings.'
         : null;
 
+  const takenAt = (dose) => {
+    const when = h('input', { type: 'datetime-local', value: toLocalInput(dose.due.getTime()) });
+    modal(`${dose.med.name}: when did you take it?`, h('div', null, h('label', { class: 'field' }, 'Time taken'), when,
+      h('p', { class: 'muted small' }, `Scheduled for ${fmtTime(dose.time)}.`)),
+      [{ label: 'Cancel' }, { label: 'Save', kind: 'primary', onClick: () => {
+        const ts = new Date(when.value).getTime();
+        if (!ts) { toast('Pick a time.'); return false; }
+        logDose(dose, 'taken', ts);
+        toast(`Logged ${dose.med.name} at ${fmtStamp(ts)}`);
+        rerender();
+      } }]);
+  };
   const prnMeds = asNeededMeds();
   const todayCount = (med) => d.prn.filter((p) => p.medId === med.id && dstr(new Date(p.at)) === today).length;
   const recent = [...d.prn].sort((a, b) => b.at - a.at).slice(0, 8);
@@ -251,13 +292,15 @@ function render(root) {
       h('h2', null, "Today's doses"),
       doses.length ? doses.map((dose) => {
         const s = doseState(dose, now);
-        return h('div', { class: 'item' },
-          h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : '', dose.med.notes ? h('div', { class: 'muted small' }, dose.med.notes) : null),
+        return h('div', { class: 'item stack' },
+          h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : '', dose.med.notes ? h('div', { class: 'muted small' }, dose.med.notes) : null,
+            dose.entry ? h('div', { class: 'small' }, h('span', { class: `pill ${s}` }, doseDetail(dose))) : s === 'missed' ? h('div', null, h('span', { class: 'pill missed' }, 'missed')) : s === 'due' ? h('div', null, h('span', { class: 'pill due' }, 'due now')) : null),
           dose.entry
-            ? [h('span', { class: `pill ${s}` }, s), h('button', { class: 'btn small ghost', onclick: () => { logDose(dose, null); rerender(); } }, 'Undo')]
-            : [s === 'missed' ? h('span', { class: 'pill missed' }, 'missed') : null,
-               h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name}`); rerender(); } }, 'Taken'),
-               h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped'); rerender(); } }, 'Skip')]);
+            ? h('button', { class: 'btn small ghost', onclick: () => { logDose(dose, null); rerender(); } }, 'Undo')
+            : h('div', { class: 'actions' },
+                h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name} at ${fmtStamp(Date.now())}`); rerender(); } }, 'Taken now'),
+                h('button', { class: 'btn small', onclick: () => takenAt(dose) }, 'Taken at…'),
+                h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped'); rerender(); } }, 'Skip')));
       }) : empty('Nothing scheduled today.')),
     notifLine ? h('p', { class: 'muted small' }, notifLine) : h('button', { class: 'btn block', onclick: async () => { await askPermission(); beep(1); rerender(); } }, '🔔 Turn on notifications'),
   );
@@ -324,7 +367,7 @@ function todayCard() {
     const s = doseState(dose, now);
     card.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : ''),
       s === 'due' ? h('span', { class: 'pill due' }, 'due') : null,
-      h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); refresh(); } }, 'Taken')));
+      h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name} at ${fmtStamp(Date.now())}`); refresh(); } }, 'Taken now')));
   }
   for (const med of prn) {
     const last = lastPrn(med);

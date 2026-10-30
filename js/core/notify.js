@@ -51,6 +51,6 @@ export function beep(times = 3) {
     }
   } catch (e) {}
   try {
-    navigator.vibrate?.([300, 150, 300, 150, 300]);
+    if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.([300, 150, 300, 150, 300]); // browsers block it before a tap
   } catch (e) {}
 }

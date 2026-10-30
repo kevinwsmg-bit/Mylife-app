@@ -2,7 +2,7 @@
 import { uid } from './util.js';
 
 const KEY = 'mylife:v1';
-export const ALL_MODULES = ['meds', 'bp', 'o2', 'weight', 'groceries', 'todos', 'calendar', 'journal', 'tv', 'ideas', 'report'];
+export const ALL_MODULES = ['meds', 'bp', 'o2', 'activity', 'weight', 'groceries', 'todos', 'calendar', 'journal', 'tv', 'ideas', 'report'];
 // Modules that existed before knownModules was tracked.
 const ORIGINAL_MODULES = ['meds', 'bp', 'weight', 'groceries', 'todos', 'calendar', 'journal', 'tv', 'ideas', 'report'];
 
