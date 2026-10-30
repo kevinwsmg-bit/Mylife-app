@@ -26,7 +26,8 @@ export const entryAreas = (e) => e.areas || (e.area ? [e.area] : []);
 export const entrySymptoms = (e) => e.symptoms || [];
 export function painLabel(e) {
   const areas = entryAreas(e);
-  if (e.pain != null) return `${areas.join(', ') || 'Pain'} ${e.pain}/10`;
+  const level = e.painRange ? `${e.painRange[0]}–${e.painRange[1]}` : e.pain; // a range is stored as painRange; pain is its midpoint
+  if (e.pain != null) return `${areas.join(', ') || 'Pain'} ${level}/10`;
   return e.areas?.length ? areas.join(', ') : '';
 }
 export const feelingText = (e) => [feelLabel(e.feeling), ...entrySymptoms(e)].filter(Boolean).join(', ');
@@ -77,8 +78,11 @@ function chips(options, initial = []) {
 function render(root) {
   const d = data();
   const rerender = () => render(root);
-  let pain = null;
+  let painSel = []; // one level, or two to give a range such as 8 to 9 (stored as the midpoint, 8.5)
   let feeling = null;
+  const painNow = () => (painSel.length === 0 ? null : painSel.length === 1 ? painSel[0] : (painSel[0] + painSel[1]) / 2);
+  const painHelp = 'Tap one number, or two for a range (8 and 9 = about 8.5).';
+  const painHint = h('p', { class: 'muted small' }, painHelp);
 
   const acts = chips(ACTIVITIES);
   const areas = chips(AREAS, d.lastAreas);
@@ -88,9 +92,11 @@ function render(root) {
   const whenBox = whenInput();
   const when = whenBox.el;
 
-  const painBtns = [...Array(11).keys()].map((n) => h('button', { type: 'button', class: 'btn num', 'aria-label': `Pain ${n}`, onclick: () => {
-    pain = pain === n ? null : n;
-    painBtns.forEach((b, i) => b.classList.toggle('on', pain === i));
+  const painBtns = [...Array(11).keys()].map((n) => h('button', { type: 'button', class: 'btn num', 'aria-label': `Pain ${n}`, 'aria-pressed': 'false', onclick: () => {
+    if (painSel.includes(n)) painSel = painSel.filter((x) => x !== n);
+    else painSel = painSel.length >= 2 ? [n] : [...painSel, n].sort((a, b) => a - b); // a third tap starts over
+    painBtns.forEach((b, i) => { b.classList.toggle('on', painSel.includes(i)); b.setAttribute('aria-pressed', painSel.includes(i) ? 'true' : 'false'); });
+    painHint.textContent = painSel.length === 2 ? `Pain ${painSel[0]} to ${painSel[1]} (about ${painNow()})` : painSel.length === 1 ? `Pain ${painSel[0]}` : painHelp;
   } }, n));
   const feelBtns = FEELS.map((f, i) => h('button', { type: 'button', class: 'btn', 'aria-label': `Feeling ${i + 1} of 5`, onclick: () => {
     feeling = feeling === i + 1 ? null : i + 1;
@@ -99,6 +105,7 @@ function render(root) {
   const mic = micButton((t) => { notes.value = (notes.value ? notes.value + ' ' : '') + t; }, 'Dictate a note');
 
   const save = () => {
+    const pain = painNow();
     const chosenActs = acts.get();
     const chosenSyms = syms.get();
     // Pre-checked areas only count if there is a pain level or you changed them yourself.
@@ -107,7 +114,7 @@ function render(root) {
     if (!chosenActs.length && !chosenSyms.length && !chosenAreas.length && pain == null && feeling == null && !notes.value.trim() && !min) {
       return toast('Check an activity or feeling, add a pain level, minutes or a note first.');
     }
-    d.entries.push({ id: uid(), at: whenBox.at(), activities: chosenActs, minutes: min, pain, areas: chosenAreas, feeling, symptoms: chosenSyms, notes: notes.value.trim() });
+    d.entries.push({ id: uid(), at: whenBox.at(), activities: chosenActs, minutes: min, pain, painRange: painSel.length === 2 ? [...painSel] : null, areas: chosenAreas, feeling, symptoms: chosenSyms, notes: notes.value.trim() });
     if (chosenAreas.length) d.lastAreas = chosenAreas;
     Store.save();
     toast('Saved');
@@ -117,7 +124,7 @@ function render(root) {
   const entry = h('div', { class: 'card' }, h('h2', null, 'Log activity and how you feel'),
     h('label', { class: 'field' }, 'What are you doing? (check all that apply)'), acts.el,
     h('label', { class: 'field' }, 'Minutes (total, optional)'), minutes,
-    h('label', { class: 'field' }, 'Pain right now (0 = none, 10 = worst)'), h('div', { class: 'seg' }, painBtns),
+    h('label', { class: 'field' }, 'Pain right now (0 = none, 10 = worst)'), h('div', { class: 'seg' }, painBtns), painHint,
     h('label', { class: 'field' }, 'Where is the pain? (check all that apply)'), areas.el,
     h('label', { class: 'field' }, 'How are you feeling? (check all that apply)'), syms.el,
     h('label', { class: 'field' }, 'Overall'), h('div', { class: 'seg' }, feelBtns),

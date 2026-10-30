@@ -77,4 +77,13 @@ route();
 startReminders();
 
 navigator.storage?.persist?.().catch(() => {});
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // A newly installed service worker means newer app files are available: offer a one-tap refresh.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || document.getElementById('updateBar')) return;
+    document.body.append(h('div', { id: 'updateBar', class: 'banner no-print', style: 'position:fixed;left:12px;right:12px;bottom:76px;z-index:25;display:flex;gap:10px;align-items:center;background:var(--card)' },
+      h('span', { class: 'grow' }, 'A new version of MyLife is ready.'), h('button', { class: 'btn small primary', onclick: () => location.reload() }, 'Update now')));
+  });
+}

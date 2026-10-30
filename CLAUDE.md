@@ -48,7 +48,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   Calendar (events plus to-do and TV dates), Journal (text and mood), Food Log (typed or spoken, auto time-stamped, one-tap "Your usual", Today quick-add, own include-in-report checkbox), TV and Movies, App Ideas, Doctor Report (per-section and per-medication toggles, PDF/share/copy/CSV, optional every-reading detail), Settings
   (profiles, module toggles, backup/restore).
 - All data stays in the browser (localStorage), per profile. Backup/restore is a JSON file in Settings.
-- Lessons learned: forms that log a time must use `whenInput()` from `core/dom.js` (a pre-filled time box goes stale if the page stays open). `replaceChildren` stringifies arrays and null, so always use `mount()` from `core/dom.js`.
+- Lessons learned: test update behaviour with a server that sends Cache-Control: max-age=600 (see how the old SW kept stale files). Forms that log a time must use `whenInput()` from `core/dom.js` (a pre-filled time box goes stale if the page stays open). `replaceChildren` stringifies arrays and null, so always use `mount()` from `core/dom.js`.
 
 ## Known limits
 - Med reminders only fire while the app is open in the browser (no server push yet). Backup: Meds -> export .ics to phone calendar.
@@ -75,6 +75,11 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - v0.4: Food Log module (food moved out of Journal; old entries migrate once); shared `core/reportcfg.js` lets any module offer its own include-in-report checkbox.
   Fixed a bug where logged times could be stale if a form had been open for a while.
 - v0.5: Activity form is multi-select (activities, pain areas, feelings). One pain level covers all checked areas.
+- v0.5.1: Pain level can be one number or a two-number range (8 + 9 = stored as 8.5 with painRange [8,9]).
+  ROOT CAUSE of "new features don't appear on my phone": GitHub Pages sends Cache-Control max-age=600 and the old service worker reused cached files.
+  sw.js now fetches with cache:'no-cache' (cache name bumped to mylife-v2), app.js shows an "Update now" banner when a new service worker takes over,
+  and Settings -> About & updates shows the version with a "Get the latest version" button (keeps data). BUMP `APP_VERSION` in js/core/version.js on every release
+  and bump the CACHE name in sw.js if caching logic changes. A phone on an old service worker needs ~3 reloads to switch over; never tell Kevin to clear site data (it erases his logs).
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.

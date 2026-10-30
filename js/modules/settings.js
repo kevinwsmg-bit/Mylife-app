@@ -4,6 +4,7 @@ import { mount, h, modal, toast, confirmBox } from '../core/dom.js';
 import { download, dstr } from '../core/util.js';
 import { notifStatus, notifSupported, askPermission, showNotification, beep } from '../core/notify.js';
 import { voiceSupported } from '../core/voice.js';
+import { APP_VERSION } from '../core/version.js';
 
 let getModules = () => [];
 export const setSettingsModules = (fn) => { getModules = fn; };
@@ -52,6 +53,17 @@ function render(root, { onProfileChange }) {
       onProfileChange();
     } catch (err) { toast(err.message || 'Could not read that file.'); }
   } });
+  const about = h('div', { class: 'card' }, h('h2', null, 'About & updates'),
+    h('p', null, `MyLife version ${APP_VERSION}`),
+    h('p', { class: 'muted small' }, 'If something new is not showing up, tap below. It reloads the newest version. Your saved data is not touched.'),
+    h('button', { class: 'btn', onclick: async () => {
+      try {
+        const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+        await Promise.all(regs.map((r) => r.unregister()));
+        await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+      } catch (e) {}
+      location.reload();
+    } }, '↻ Get the latest version'));
   const backup = h('div', { class: 'card' }, h('h2', null, 'Backup'),
     h('p', { class: 'muted small' }, 'Your data is stored only on this device. Save a backup file now and then (and before changing phones).'),
     Store.saveFailed ? h('div', { class: 'banner' }, 'Could not save to this browser. Storage may be full or blocked.') : null,
@@ -59,7 +71,7 @@ function render(root, { onProfileChange }) {
       h('button', { class: 'btn primary', onclick: () => { download(`mylife-backup-${dstr()}.json`, Store.exportJSON(), 'application/json'); toast('Backup downloaded.'); } }, '⬇ Download backup'),
       h('button', { class: 'btn', onclick: () => file.click() }, '⬆ Restore from file'), file));
 
-  mount(root, profiles, mods, notif, backup,
+  mount(root, profiles, mods, notif, backup, about,
     h('p', { class: 'muted small', style: 'text-align:center' }, 'MyLife · logs and reminders only, not medical advice.'));
 }
 

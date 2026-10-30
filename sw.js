@@ -1,6 +1,6 @@
 // Service worker: lets the app open offline and show notifications.
 // Network first so updates arrive quickly, cache as the offline fallback.
-const CACHE = 'mylife-v1';
+const CACHE = 'mylife-v2';
 const SHELL = ['./', './index.html', './css/style.css', './js/app.js'];
 
 self.addEventListener('install', (e) => {
@@ -19,7 +19,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' }) // revalidate every time so a new version shows up right away
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(req, copy));
