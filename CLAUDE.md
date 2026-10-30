@@ -10,6 +10,9 @@ log, a tracker, and eventually a replacement for many single-purpose phone apps.
 - Commit and push to GitHub after each meaningful chunk so phone and computer sessions stay in sync.
 - Update the "Status / where we left off" section below at the end of every working session.
 
+## Research
+See `docs/research.md` (Walmart cart hand-off, open smartwatch options, health-sensing limits). Never present watch readings as medical-grade.
+
 ## Core principles
 1. **Modular.** Each feature is a self-contained module (Meds, Blood Pressure, Groceries, TV, ...).
    Adding a module must not require rewriting the others. Each user chooses which modules are on.
@@ -63,6 +66,8 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 ## Status / where we left off
 - v0.1 built, tested in a headless browser, and live on GitHub Pages. Kevin confirmed it loads and works on his phone.
 - Every push to main redeploys the site in 1-2 minutes. The service worker is network-first, so reloads pick up updates.
+- Kevin likes the idea of a Bangle.js 2 watch prototype (meds alarms on the wrist, tap-to-log). He asked for SpO2, BP and irregular-rhythm detection; research says
+  those are not feasible or safe on a DIY watch (see docs/research.md). Proposed instead: watch for heart rate, alarms and quick logging; validated devices for BP/SpO2.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.
