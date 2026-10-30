@@ -53,7 +53,7 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
 - TV dates are entered by hand. Walmart is a list hand-off (copy/share/search links), not automatic add-to-cart.
 
 ## Open decisions (ask Kevin before building)
-- Hosting: GitHub Pages needs a public repo on a free GitHub plan (code only, no personal data). Alternatives: Netlify or Cloudflare Pages.
+- Hosting: DECIDED. Repo is public (code only) and served by GitHub Pages at https://kevinwsmg-bit.github.io/Mylife-app/ (deploys from main, root).
 - Reliability of med alarms: PWA notifications can be unreliable when the app is closed. May need
   a small server for push notifications, or a native Android build for exact alarms.
 - Where real data is stored and synced (on-device only at first; private backend later).
@@ -61,7 +61,8 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   or a deep link. Needs research before promising.
 
 ## Status / where we left off
-- v0.1 built and tested in a headless browser (all modules, alarm firing, profiles, backup, service worker).
-- Not yet hosted: Kevin needs a way to open it on his phone (see open decision on hosting below).
-- Next: host it, try it on the phone, then iterate. Likely next steps: reliable alarms (push server or native Android),
-  cross-device sync, TV release dates from an API, Walmart hand-off research.
+- v0.1 built, tested in a headless browser, and live on GitHub Pages. Kevin confirmed it loads and works on his phone.
+- Every push to main redeploys the site in 1-2 minutes. The service worker is network-first, so reloads pick up updates.
+- Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
+  (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
+  (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.
