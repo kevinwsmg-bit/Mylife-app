@@ -47,3 +47,18 @@ Findings from web searches (October 2026). Verify before relying on them; many s
 - Bangle.js 2 has no speaker (alerts are vibration, and any beep is very quiet) and appears to have no microphone
   ([forum thread](https://forum.espruino.com/conversations/367097); not an official spec). The case cannot be opened to add one.
 - Voice input therefore stays on the phone (mic buttons in the MyLife web app use Chrome's speech recognition).
+
+## Mainstream programmable watches (researched Oct 2026; verify specs and prices on maker sites, many sources are listicles)
+- **Wear OS (Google Pixel Watch 3/4, Samsung Galaxy Watch 7/8, Galaxy Watch FE ~ $149):** real apps in Kotlin/Android Studio; full-color AMOLED.
+  Heart rate is readable via the Health Services API ([guide](https://developer.android.com/health-and-fitness/fitness/basic-app/integrate-wear-os)); SpO2, microphone and standalone behavior NOT confirmed in research.
+  [Wareable Android watch roundup](https://www.wareable.com/smartwatches/best-android-watch).
+- **Samsung:** ECG and irregular rhythm notifications are FDA-cleared. Blood pressure launched in the US on 2026-03-31 but Samsung says it is a wellness feature, not FDA-cleared,
+  and needs upper-arm-cuff calibration every 28 days ([Samsung](https://news.samsung.com/us/samsung-blood-pressure-monitoring-feature-available),
+  [Android Headlines](https://www.androidheadlines.com/2026/04/samsung-galaxy-watch-blood-pressure-tool-arrives-in-us-without-fda-approval.html)).
+  TO VERIFY: Samsung Health Monitor (ECG/BP) may require a Samsung phone.
+- **Amazfit / Zepp OS:** JavaScript mini apps, has BloodOxygen and HeartRate sensor modules, background services ([docs](https://docs.zepp.com/docs/guides/framework/device/intro/)). Not clinically validated. Prices not checked.
+- **Garmin Connect IQ:** Monkey C; heart rate live, SpO2 via SensorHistory on supported devices ([forum](https://forums.garmin.com/developer/connect-iq/f/discussion/225090/connectiq-oxygen-spo2-level-reading)).
+- **Withings ScanWatch 2:** FDA-cleared ECG (AFib detection) and SpO2, Android and Health Connect compatible, about $350-370; not programmable
+  ([Withings](https://www.withings.com/us/en/scanwatch-2/38b/shop)).
+- Note: measurements from maker apps (ECG, irregular rhythm) probably cannot be read by our app directly; plan to read what Health Connect exposes. Unverified.
+- Correction to earlier note: Samsung now offers cuff-calibrated BP in the US, but it is wellness-only and not FDA-cleared; keep the upper-arm cuff as the source of truth.
