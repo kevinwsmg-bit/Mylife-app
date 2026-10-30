@@ -36,3 +36,14 @@ Findings from web searches (October 2026). Verify before relying on them; many s
 - Android [Health Connect](https://developer.android.com/health-and-fitness/health-connect/data-types) has record types for blood pressure, heart rate and oxygen saturation,
   but only a native Android app can read or write them (not the web app). Gadgetbridge can sync heart rate and SpO2 to it
   ([docs](https://gadgetbridge.org/basics/integrations/health-connect/)).
+
+## Buying a Bangle.js 2 (checked Oct 2026; confirm price, stock and shipping at checkout)
+- Official shop: https://shop.espruino.com/banglejs2 (listed about GBP 99.60 incl. tax; US shipping and duties not confirmed).
+- Adafruit (US): https://www.adafruit.com/product/5427 (listed $149.95; stock not confirmed).
+- Pimoroni lists it as retired; The Pi Hut ships it within the UK only (lithium battery rules).
+- No Bangle.js 3 announced; Espruino's developer said no new Bangle is planned soon, so Bangle.js 2 is the current model.
+
+## Voice on the watch
+- Bangle.js 2 has no speaker (alerts are vibration, and any beep is very quiet) and appears to have no microphone
+  ([forum thread](https://forum.espruino.com/conversations/367097); not an official spec). The case cannot be opened to add one.
+- Voice input therefore stays on the phone (mic buttons in the MyLife web app use Chrome's speech recognition).
