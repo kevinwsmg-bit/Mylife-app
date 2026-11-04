@@ -38,8 +38,10 @@ export function doseDetail(dose) {
   const abs = Math.abs(diff);
   const span = abs >= 60 ? `${Math.floor(abs / 60)}h${abs % 60 ? ' ' + (abs % 60) + 'm' : ''}` : `${abs} min`;
   const off = abs >= 10 ? ` (${span} ${diff > 0 ? 'late' : 'early'})` : '';
-  return `${e.status === 'skipped' ? 'skipped' : 'taken'} ${when}${e.status === 'taken' ? off : ''}`;
+  return `${e.status === 'skipped' ? 'skipped' : 'taken'} ${when}${e.status === 'taken' ? off : ''}${loggedLater(e) ? ' · added later' : ''}`;
 }
+
+let viewDate = null; // a past date being browsed in Today's doses (null = today)
 
 export const periodOf = (time) => (Number(time.split(':')[0]) < 12 ? 'am' : 'pm');
 const PERIOD_LABEL = { am: '☀️ AM · morning', pm: '🌙 PM · afternoon & evening' };
@@ -126,10 +128,22 @@ export function doseState(dose, now = new Date()) {
   return mins > 120 ? 'missed' : 'due';
 }
 
+// An entry made well after the dose time (e.g. yesterday's dose logged today).
+export const loggedLater = (e) => !!e.loggedAt && e.loggedAt - e.at > 6 * 3600e3;
+
+// Scheduled doses from the last `days` days (not today) with no taken/skipped entry, oldest first.
+export function unloggedDoses(days = 14) {
+  const out = [];
+  for (let i = days; i >= 1; i--) {
+    for (const dose of dosesForDate(dstr(addDays(new Date(), -i)))) if (!dose.entry && doseState(dose) === 'missed') out.push(dose);
+  }
+  return out;
+}
+
 export function logDose(dose, status, at = Date.now()) {
   const d = data();
   d.log = d.log.filter((l) => l.key !== dose.key);
-  if (status) d.log.push({ key: dose.key, medId: dose.med.id, date: dose.date, time: dose.time, status, at });
+  if (status) d.log.push({ key: dose.key, medId: dose.med.id, date: dose.date, time: dose.time, status, at, loggedAt: Date.now() });
   Store.save();
 }
 
@@ -245,7 +259,10 @@ function render(root) {
   const today = dstr();
   const now = new Date();
   const rerender = () => render(root);
-  const doses = dosesForDate(today);
+  const shownDate = viewDate && viewDate < today ? viewDate : today;
+  const isPastView = shownDate !== today;
+  const doses = dosesForDate(shownDate);
+  const missedBefore = unloggedDoses();
 
   const notifLine = !notifSupported
     ? 'This browser cannot show notifications.'
@@ -257,7 +274,7 @@ function render(root) {
 
   const takenAt = (dose) => {
     const when = h('input', { type: 'datetime-local', value: toLocalInput(dose.due.getTime()) });
-    modal(`${dose.med.name}: when did you take it?`, h('div', null, h('label', { class: 'field' }, 'Time taken'), when,
+    modal(`${dose.med.name}${dose.date !== today ? ' · ' + fmtDate(dose.date) : ''}: when did you take it?`, h('div', null, h('label', { class: 'field' }, 'Time taken'), when,
       h('p', { class: 'muted small' }, `Scheduled for ${fmtTime(dose.time)}.`)),
       [{ label: 'Cancel' }, { label: 'Save', kind: 'primary', onClick: () => {
         const ts = new Date(when.value).getTime();
@@ -300,15 +317,22 @@ function render(root) {
 
   const doseRow = (dose) => {
     const s = doseState(dose, now);
+    const past = dose.date !== today;
+    const dayNote = past ? `${fmtDate(dose.date)} · ` : '';
     return h('div', { class: 'item stack' },
-      h('div', { class: 'grow' }, h('strong', null, fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : '', dose.med.notes ? h('div', { class: 'muted small' }, dose.med.notes) : null,
-        dose.entry ? h('div', { class: 'small' }, h('span', { class: `pill ${s}` }, doseDetail(dose))) : s === 'missed' ? h('div', null, h('span', { class: 'pill missed' }, 'missed')) : s === 'due' ? h('div', null, h('span', { class: 'pill due' }, 'due now')) : null),
+      h('div', { class: 'grow' }, h('strong', null, dayNote + fmtTime(dose.time)), ' ', dose.med.name, dose.med.dose ? ` · ${dose.med.dose}` : '', dose.med.notes ? h('div', { class: 'muted small' }, dose.med.notes) : null,
+        dose.entry ? h('div', { class: 'small' }, h('span', { class: `pill ${s}` }, doseDetail(dose))) : s === 'missed' ? h('div', null, h('span', { class: 'pill missed' }, 'not logged')) : s === 'due' ? h('div', null, h('span', { class: 'pill due' }, 'due now')) : null),
       dose.entry
         ? h('button', { class: 'btn small ghost', onclick: () => { logDose(dose, null); rerender(); } }, 'Undo')
-        : h('div', { class: 'actions' },
-            h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name} at ${fmtStamp(Date.now())}`); rerender(); } }, 'Taken now'),
-            h('button', { class: 'btn small', onclick: () => takenAt(dose) }, 'Taken at…'),
-            h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped'); rerender(); } }, 'Skip')));
+        : past
+          ? h('div', { class: 'actions' },
+              h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken', dose.due.getTime()); toast(`Logged ${dose.med.name} at ${fmtTime(dose.time)} on ${fmtDate(dose.date)}`); rerender(); } }, 'Taken as scheduled'),
+              h('button', { class: 'btn small', onclick: () => takenAt(dose) }, 'Taken at…'),
+              h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped', dose.due.getTime()); rerender(); } }, 'Skipped'))
+          : h('div', { class: 'actions' },
+              h('button', { class: 'btn small primary', onclick: () => { logDose(dose, 'taken'); toast(`Logged ${dose.med.name} at ${fmtStamp(Date.now())}`); rerender(); } }, 'Taken now'),
+              h('button', { class: 'btn small', onclick: () => takenAt(dose) }, 'Taken at…'),
+              h('button', { class: 'btn small', onclick: () => { logDose(dose, 'skipped'); rerender(); } }, 'Skip')));
   };
   const period = (key) => {
     const group = doses.filter((x) => periodOf(x.time) === key);
@@ -317,12 +341,26 @@ function render(root) {
     return [h('div', { class: 'period' }, h('span', null, PERIOD_LABEL[key]), h('span', { class: 'muted small' }, `${taken}/${group.length} taken`)), group.map(doseRow)];
   };
 
+  // Unlogged doses grouped under a bar per date.
+  const dayGroups = (list) => {
+    const byDate = {};
+    for (const x of list) (byDate[x.date] ||= []).push(x);
+    return Object.keys(byDate).sort().reverse().map((k) => [h('div', { class: 'period' }, h('span', null, fmtDate(k)), h('span', { class: 'muted small' }, `${byDate[k].length} to review`)), byDate[k].map(doseRow)]);
+  };
+
   const view = h('div', null,
     h('div', { class: 'banner' }, '⚠️ Reminders only fire while this app is open in your browser. Keep a regular phone alarm as a backup until you trust them. You can also export your schedule to your phone calendar below.'),
     prnCard,
+    missedBefore.length && !isPastView ? h('div', { class: 'card' }, h('h2', null, `Catch up (${missedBefore.length})`),
+      h('p', { class: 'muted small' }, 'These earlier doses have no entry. Forgot to log one? Mark when you took it. If you really did miss it, leave it as is.'),
+      fold('catchup', `Show ${missedBefore.length} earlier dose${missedBefore.length === 1 ? '' : 's'}`, dayGroups(missedBefore))) : null,
     h('div', { class: 'card' },
-      h('h2', null, "Today's doses"),
-      doses.length ? [period('am'), period('pm')] : empty('Nothing scheduled today.')),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn small', 'aria-label': 'Previous day', disabled: shownDate <= dstr(addDays(new Date(), -60)), onclick: () => { viewDate = dstr(addDays(parseD(shownDate), -1)); rerender(); } }, '‹'),
+        h('h2', { class: 'grow', style: 'text-align:center;margin:0' }, isPastView ? (shownDate === dstr(addDays(new Date(), -1)) ? "Yesterday's doses" : fmtDate(shownDate) + ' doses') : "Today's doses"),
+        h('button', { class: 'btn small', 'aria-label': 'Next day', disabled: !isPastView, onclick: () => { const n = dstr(addDays(parseD(shownDate), 1)); viewDate = n >= today ? null : n; rerender(); } }, '›')),
+      isPastView ? h('button', { class: 'btn small ghost', style: 'margin-top:6px', onclick: () => { viewDate = null; rerender(); } }, 'Back to today') : null,
+      doses.length ? [period('am'), period('pm')] : empty(isPastView ? 'Nothing was scheduled that day.' : 'Nothing scheduled today.')),
     notifLine ? h('p', { class: 'muted small' }, notifLine) : h('button', { class: 'btn block', onclick: async () => { await askPermission(); beep(1); rerender(); } }, '🔔 Turn on notifications'),
   );
 
@@ -403,6 +441,8 @@ function todayCard() {
       h('div', { class: 'grow' }, h('strong', null, med.name), med.dose ? ` · ${med.dose}` : '', h('div', { class: 'muted small' }, 'As needed · ', last ? `last ${fmtStamp(last.at)} (${ago(last.at)})` : 'not taken yet')),
       h('button', { class: 'btn small primary', onclick: () => takeNow(med, refresh) }, 'Take now')));
   }
+  const earlier = unloggedDoses().length;
+  if (earlier) card.append(h('p', { class: 'small' }, h('a', { href: '#/meds' }, `${earlier} earlier dose${earlier === 1 ? '' : 's'} not logged. Tap to fix →`)));
   card.append(h('a', { class: 'small', href: '#/meds' }, 'Open medications →'));
   return card;
 }
@@ -410,6 +450,8 @@ function todayCard() {
 // Called when you open the Meds page (not on redraws), so the lists start collapsed each visit.
 function enter() {
   for (const k of Object.keys(openSec)) delete openSec[k];
+  openSec.catchup = true; // unlogged past doses are worth seeing straight away
+  viewDate = null;
 }
 
 export default { id: 'meds', name: 'Medications', tab: 'Meds', icon: '💊', blurb: 'Reminders and dose log', render, enter, todayCard };

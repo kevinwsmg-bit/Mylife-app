@@ -7,7 +7,7 @@ import { dstr, addDays, fmtDate, fmtStamp, avg, round, copyText, download } from
 import { readings, stats, byDay } from './bp.js';
 import { weights, weightUnit } from './weight.js';
 import { o2Readings, summary as o2Summary } from './o2.js';
-import { adherence, prnEntries, takenEntries, allMeds } from './meds.js';
+import { adherence, prnEntries, takenEntries, allMeds, loggedLater } from './meds.js';
 import { activityEntries, summary as actSummary, entryActivities, painLabel, feelingText } from './activity.js';
 import { foodEntries } from './food.js';
 
@@ -84,9 +84,11 @@ function build(from, to, c) {
     if (total) {
       sec.paras.push(`Overall ${Math.round((sum.taken / total) * 100)}% taken (${sum.taken} taken, ${sum.skipped} skipped, ${sum.missed} missed of ${total}).`,
         ...by.map((m) => `${dose(m.med)}: ${m.taken}/${m.taken + m.skipped + m.missed} taken`));
+      const entries = takenEntries(from, to).filter((l) => !hidden.has(l.med.id) && !l.med.asNeeded);
+      const later = entries.filter(loggedLater).length;
+      if (later) sec.paras.push(`${plural(later, 'dose')} ${later === 1 ? 'was' : 'were'} entered after the fact${c.detail ? ' (marked below)' : ''}.`);
       if (c.detail) {
-        const log = takenEntries(from, to).filter((l) => !hidden.has(l.med.id) && !l.med.asNeeded);
-        sec.table = { head: ['Date', 'Medication', 'Scheduled', 'Status', 'Recorded at'], rows: log.map((l) => [fmtDate(l.date), dose(l.med), l.time, l.status, fmtStamp(l.at)]) };
+        sec.table = { head: ['Date', 'Medication', 'Scheduled', 'Status', 'Recorded at'], rows: entries.map((l) => [fmtDate(l.date), dose(l.med), l.time, l.status + (loggedLater(l) ? ' (entered later)' : ''), fmtStamp(l.at)]) };
       }
     }
     out.push(sec);

@@ -86,6 +86,10 @@ See `docs/modules.md` for the full brainstorm. Priority order Kevin described:
   Today's doses and the Today-screen card have AM / PM divider bars with per-period "x/y taken". Fixed a stray "null" printed on the Meds page (plain `append(null)`); use `addTo()`/`mount()` from core/dom.js.
   A sweep test that loads every page and greps for "null|undefined|NaN|[object" is worth keeping.
 - Boardroom done (docs/boardroom.md). Awaiting Kevin's pick of which new modules to build first; suggested order is the top 10 in that file.
+- v0.5.4: Meds catch-up. "Catch up (N)" card (open by default) lists scheduled doses from the last 14 days with no entry; past rows offer Taken as scheduled / Taken at… / Skipped.
+  Today's doses has ‹ › day browsing (past days can be fixed or undone). Log entries now carry `loggedAt`; entries made >6h after the dose are shown "added later" and
+  the doctor report says how many doses were entered after the fact (and marks them in the detailed list). Missed (unlogged) doses count against adherence until logged.
+  Tests with fixed dose times break near midnight because the reminder alarm pop-up appears (alarm window is 3h): pre-mark `mylife:alerts` or use noon doses.
 - Next: Kevin installs it to his home screen and uses it for a few days, then reports what to change or add
   (he can use the App Ideas module and paste the list into a session). Likely next steps: reliable alarms
   (push server or native Android), cross-device sync, TV release dates from an API, Walmart hand-off research.
